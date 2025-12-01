@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from app.models.weather import AggregatedWeatherResponse, WeatherProvider, WeatherSample
 from app.services.aggregator import WeatherAggregator
 

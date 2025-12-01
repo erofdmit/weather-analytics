@@ -44,9 +44,7 @@ class WeatherbitProvider(BaseWeatherProvider):
         weather_obj = current.get("weather") or {}
         condition = weather_obj.get("description")
 
-        wind_speed_kph = (
-            float(wind_spd_ms) * 3.6 if wind_spd_ms is not None else None
-        )
+        wind_speed_kph = float(wind_spd_ms) * 3.6 if wind_spd_ms is not None else None
 
         ob_time = current.get("ob_time")
         observation_time = _parse_ob_time(ob_time)

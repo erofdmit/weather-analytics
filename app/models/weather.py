@@ -18,12 +18,8 @@ class WeatherProvider(str, Enum):
 class WeatherSample(BaseModel):
     provider: WeatherProvider = Field(..., description="Имя провайдера данных")
     temperature_c: float = Field(..., description="Температура воздуха, °C")
-    wind_speed_kph: float | None = Field(
-        None, description="Скорость ветра, км/ч"
-    )
-    humidity: float | None = Field(
-        None, description="Относительная влажность, %"
-    )
+    wind_speed_kph: float | None = Field(None, description="Скорость ветра, км/ч")
+    humidity: float | None = Field(None, description="Относительная влажность, %")
     condition: str | None = Field(
         None, description="Человеко-читаемое описание погодных условий"
     )

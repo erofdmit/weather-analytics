@@ -36,9 +36,11 @@ class OpenMeteoProvider(BaseWeatherProvider):
         return WeatherSample(
             provider=WeatherProvider.OPEN_METEO,
             temperature_c=float(current.get("temperature")),
-            wind_speed_kph=float(current.get("windspeed"))
-            if current.get("windspeed") is not None
-            else None,
+            wind_speed_kph=(
+                float(current.get("windspeed"))
+                if current.get("windspeed") is not None
+                else None
+            ),
             humidity=None,
             condition=None,
             observation_time=_parse_iso_datetime(current.get("time")),
