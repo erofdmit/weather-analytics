@@ -51,9 +51,9 @@ class WeatherstackProvider(BaseWeatherProvider):
         return WeatherSample(
             provider=WeatherProvider.WEATHERSTACK,
             temperature_c=float(temp_c),
-            wind_speed_kph=float(wind_speed_kph)
-            if wind_speed_kph is not None
-            else None,
+            wind_speed_kph=(
+                float(wind_speed_kph) if wind_speed_kph is not None else None
+            ),
             humidity=float(humidity) if humidity is not None else None,
             condition=condition,
             observation_time=observation_time,

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
-
 from app.api.routes import weather as weather_routes
 from app.core.config import Settings, get_settings
 from app.models.weather import WeatherProvider, WeatherSample
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
 
 class FakeOpenMeteoProvider:

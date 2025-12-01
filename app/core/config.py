@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         extra="ignore",
         env_prefix="",
     )
-    
+
     openweather_api_key: str = ""
     weatherapi_api_key: str = ""
     weatherbit_api_key: str = ""

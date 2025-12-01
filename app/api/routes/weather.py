@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
 import httpx
-
 from app.core.config import Settings, get_settings
 from app.models.weather import AggregatedWeatherResponse
 from app.services.aggregator import WeatherAggregator
@@ -11,6 +9,7 @@ from app.services.weather_providers.openweather import OpenWeatherMapProvider
 from app.services.weather_providers.weatherapi import WeatherAPIProvider
 from app.services.weather_providers.weatherbit import WeatherbitProvider
 from app.services.weather_providers.weatherstack import WeatherstackProvider
+from fastapi import APIRouter, Depends, Query, Request
 
 router = APIRouter(prefix="/weather", tags=["weather"])
 
@@ -32,7 +31,7 @@ async def get_current_weather(
     request: Request,
     lat: float = Query(..., description="Широта"),
     lon: float = Query(..., description="Долгота"),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> AggregatedWeatherResponse:
     """
     Агрегированный эндпоинт: возвращает текущую погоду от 1–5 провайдеров,
