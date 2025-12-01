@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weather-analytics"
+version = "0.1.0"
+description = "FastAPI сервис-агрегатор погоды из нескольких публичных API"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Dmitry Erofeev" },
+  { name = "Eduard Polyakov" },
+  { name = "Maxim Piskaev" }
+]
+
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "httpx>=0.27.0",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-anyio>=0.0.0",
+  "ruff>=0.6.0",
+  "black>=24.0.0",
+  "mypy>=1.10.0",
+]
+
+[tool.setuptools]
+package-dir = { "" = "." }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]

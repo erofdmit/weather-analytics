@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+import asyncio
+from statistics import mean
+from typing import Iterable, List
+
+from app.models.weather import AggregatedWeatherResponse, WeatherSample
+from app.services.weather_providers.base import BaseWeatherProvider
+
+
+class WeatherAggregator:
+    def __init__(self, providers: Iterable[BaseWeatherProvider]) -> None:
+        self._providers: List[BaseWeatherProvider] = list(providers)
+
+    async def get_aggregated_weather(
+        self,
+        lat: float,
+        lon: float,
+    ) -> AggregatedWeatherResponse:
+        tasks = [p.get_weather(lat, lon) for p in self._providers]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        samples: list[WeatherSample] = []
+        for result in results:
+            if isinstance(result, Exception):
+                continue
+            samples.append(result)
+
+        avg_temp = _safe_mean(
+            sample.temperature_c for sample in samples if sample.temperature_c is not None
+        )
+        avg_humidity = _safe_mean(
+            sample.humidity for sample in samples if sample.humidity is not None
+        )
+
+        return AggregatedWeatherResponse(
+            latitude=lat,
+            longitude=lon,
+            samples=samples,
+            average_temperature_c=avg_temp,
+            average_humidity=avg_humidity,
+        )
+
+
+def _safe_mean(values: Iterable[float]) -> float | None:
+    values_list = [v for v in values]
+    if not values_list:
+        return None
+    return float(mean(values_list))
