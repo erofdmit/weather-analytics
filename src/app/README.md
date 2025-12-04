@@ -29,14 +29,12 @@ weather-analytics/
 │   ├── app/          # FastAPI приложение + MongoDB
 │   ├── dwh/          # PostgreSQL Data Warehouse
 │   └── airflow/      # Airflow для ETL процессов
+├── app/              # Исходный код приложения (для разработки)
 ├── tests/            # Тесты
-├── .github/          # CI/CD workflows
 └── README.md         # Этот файл
 ```
 
 Подробная документация по структуре: [src/README.md](src/README.md)
-
-**Важно:** Весь рабочий код находится в папке `src/`. Корень проекта содержит только конфигурацию и документацию.
 
 ---
 
@@ -84,39 +82,83 @@ cd src/app && python check_mongo.py
 
 ---
 
-## Локальная разработка (без Docker)
-
-Для разработки можно запустить только приложение локально:
+## Установка и запуск локально (для разработки)
 
 ### 1. Установка uv
 
+Если uv ещё не установлен:
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+После установки перезагрузи терминал или выполни:
+
+```bash
 source $HOME/.local/bin/env
 ```
 
-### 2. Установка зависимостей
+---
+
+### 2. Клонирование проекта
 
 ```bash
-cd src/app
+git clone https://github.com/your-org/weather-analytics.git
+cd weather-analytics
+```
+
+---
+
+### 3. Настройка окружения и зависимостей
+
+uv автоматически создаст виртуальное окружение и установит зависимости:
+
+```bash
 uv sync
 ```
 
-### 3. Запуск MongoDB
+Если хочешь установить только production-зависимости (без dev):
 
 ```bash
-cd src/app
-docker-compose up -d mongodb  # Только MongoDB без приложения
+uv sync --no-dev
 ```
 
-### 4. Запуск приложения локально
+---
+
+### 4. Переменные окружения
+
+Создай `.env` в корне проекта (опционально, если нужны платные провайдеры):
+
+```env
+OPENWEATHER_API_KEY=your_openweather_key
+WEATHERAPI_API_KEY=your_weatherapi_key
+WEATHERBIT_API_KEY=your_weatherbit_key
+WEATHERSTACK_API_KEY=your_weatherstack_key
+HTTP_TIMEOUT=5
+```
+
+Без этих ключей будет работать только Open-Meteo (без ключа).
+
+---
+
+### 5. Запуск приложения
+
+Через uv:
 
 ```bash
-cd src/app
-MONGO_HOST=localhost uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
-API будет доступен на `http://localhost:8000`
+По умолчанию API будет доступен по адресу:
+
+```url
+http://127.0.0.1:8000
+```
+
+Основные эндпоинты:
+
+* **GET /api/weather/health** — healthcheck
+* **GET /api/weather/current?lat=52.52&lon=13.405** — агрегированная погода по координатам
 
 ---
 
