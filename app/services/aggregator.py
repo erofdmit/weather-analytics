@@ -4,8 +4,8 @@ import asyncio
 from statistics import mean
 from typing import Iterable, List
 
-from app.models.weather import AggregatedWeatherResponse, WeatherSample
-from app.services.weather_providers.base import BaseWeatherProvider
+from app.models.weather import AggregatedForecastResponse, AggregatedWeatherResponse, ProviderForecast, WeatherSample
+from app.services.weather_providers.base import BaseForecastProvider, BaseWeatherProvider
 
 
 class WeatherAggregator:
@@ -48,3 +48,33 @@ def _safe_mean(values: Iterable[float]) -> float | None:
     if not values_list:
         return None
     return float(mean(values_list))
+
+
+class ForecastAggregator:
+    """Сервис, агрегирующий прогноз погоды от нескольких провайдеров."""
+
+    def __init__(self, providers: Iterable[BaseForecastProvider]) -> None:
+        self._providers: list[BaseForecastProvider] = list(providers)
+
+    async def get_aggregated_forecast(
+        self,
+        lat: float,
+        lon: float,
+        hours: int,
+    ) -> AggregatedForecastResponse:
+        tasks = [p.get_forecast(lat, lon, hours) for p in self._providers]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        forecasts: list[ProviderForecast] = []
+        for result in results:
+            if isinstance(result, Exception):
+                # TODO: логирование
+                continue
+            forecasts.append(result)
+
+        return AggregatedForecastResponse(
+            latitude=lat,
+            longitude=lon,
+            hours=hours,
+            forecasts=forecasts,
+        )
