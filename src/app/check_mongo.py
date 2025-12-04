@@ -11,10 +11,10 @@ load_dotenv()
 
 # Конфигурация MongoDB
 MONGO_CONFIG = {
-    "username": os.getenv("MONGO_INITDB_ROOT_USERNAME", "admin"),
-    "password": os.getenv("MONGO_INITDB_ROOT_PASSWORD", "admin123"),
-    "host": os.getenv("MONGO_HOST", "localhost"),
-    "port": int(os.getenv("MONGO_PORT", "27017")),
+    "username": os.getenv("MONGO_INITDB_ROOT_USERNAME"),
+    "password": os.getenv("MONGO_INITDB_ROOT_PASSWORD"),
+    "host": os.getenv("MONGO_HOST"),
+    "port": int(os.getenv("MONGO_PORT")),
     "authSource": "admin",
 }
 
@@ -27,64 +27,107 @@ try:
     client.admin.command('ping')
     print("✅ Successfully connected to MongoDB")
     
-    # Получение базы данных и коллекции
+    # Получение базы данных и коллекций
     db = client["weather_analytics_db"]
-    collection = db["weather_data"]
+    weather_collection = db["weather_current"]
+    forecast_collection = db["weather_forecast"]
     
     # Подсчет документов
-    count = collection.count_documents({})
-    print(f"\n📊 Total documents in collection: {count}")
+    weather_count = weather_collection.count_documents({})
+    forecast_count = forecast_collection.count_documents({})
+    print(f"\n📊 Statistics:")
+    print(f"  Current weather records: {weather_count}")
+    print(f"  Forecast records: {forecast_count}")
+    print(f"  Total: {weather_count + forecast_count}")
     
-    if count > 0:
-        print("\n📝 Recent weather data (last 5 records):")
+    # Current weather
+    if weather_count > 0:
+        print("\n📝 Recent current weather (last 3 records):")
         print("=" * 80)
         
-        results = collection.find(
+        results = weather_collection.find(
             {},
             sort=[("created_at", -1)],
-            limit=5
+            limit=3
         )
         
         for i, doc in enumerate(results, 1):
-            print(f"\n--- Record {i} ---")
-            print(f"Latitude: {doc.get('latitude')}")
-            print(f"Longitude: {doc.get('longitude')}")
-            print(f"Status Code: {doc.get('status_code')}")
+            print(f"\n--- Current Weather #{i} ---")
+            print(f"Latitude: {doc.get('latitude')}, Longitude: {doc.get('longitude')}")
             print(f"Created At: {doc.get('created_at')}")
             
             if 'response' in doc and 'average_temperature_c' in doc['response']:
-                print(f"Average Temperature: {doc['response']['average_temperature_c']}°C")
-                print(f"Average Humidity: {doc['response'].get('average_humidity')}%")
+                print(f"Temperature: {doc['response']['average_temperature_c']}°C")
                 print(f"Samples: {len(doc['response'].get('samples', []))}")
-            
             print("-" * 80)
-    else:
-        print("\n⚠️  No data found in collection")
     
-    # Статистика по локациям
-    print("\n📍 Statistics by location:")
-    pipeline = [
-        {
-            "$group": {
-                "_id": {
-                    "lat": "$latitude",
-                    "lon": "$longitude"
-                },
-                "count": {"$sum": 1}
-            }
-        },
-        {"$sort": {"count": -1}},
-        {"$limit": 10}
-    ]
+    # Forecasts
+    if forecast_count > 0:
+        print("\n🔮 Recent forecasts (last 3 records):")
+        print("=" * 80)
+        
+        results = forecast_collection.find(
+            {},
+            sort=[("created_at", -1)],
+            limit=3
+        )
+        
+        for i, doc in enumerate(results, 1):
+            print(f"\n--- Forecast #{i} ---")
+            print(f"Latitude: {doc.get('latitude')}, Longitude: {doc.get('longitude')}")
+            print(f"Horizon: {doc.get('hours')} hours")
+            print(f"Created At: {doc.get('created_at')}")
+            
+            if 'response' in doc and 'forecasts' in doc['response']:
+                print(f"Providers: {len(doc['response']['forecasts'])}")
+            print("-" * 80)
     
-    location_stats = list(collection.aggregate(pipeline))
-    
-    if location_stats:
+    # Статистика по локациям (current weather)
+    if weather_count > 0:
+        print("\n📍 Current weather by location:")
+        pipeline = [
+            {
+                "$group": {
+                    "_id": {
+                        "lat": "$latitude",
+                        "lon": "$longitude"
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]
+        
+        location_stats = list(weather_collection.aggregate(pipeline))
+        
         for stat in location_stats:
             loc = stat['_id']
             print(f"  • Lat: {loc['lat']}, Lon: {loc['lon']} - {stat['count']} records")
-    else:
-        print("  No location statistics available")
+    
+    # Статистика по локациям (forecasts)
+    if forecast_count > 0:
+        print("\n🔮 Forecasts by location:")
+        pipeline = [
+            {
+                "$group": {
+                    "_id": {
+                        "lat": "$latitude",
+                        "lon": "$longitude",
+                        "hours": "$hours"
+                    },
+                    "count": {"$sum": 1}
+                }
+            },
+            {"$sort": {"count": -1}},
+            {"$limit": 5}
+        ]
+        
+        location_stats = list(forecast_collection.aggregate(pipeline))
+        
+        for stat in location_stats:
+            loc = stat['_id']
+            print(f"  • Lat: {loc['lat']}, Lon: {loc['lon']}, {loc['hours']}h - {stat['count']} records")
     
     client.close()
     print("\n✅ MongoDB connection closed")
