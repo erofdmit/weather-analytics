@@ -1,3 +1,7 @@
+# Environment files
+.env
+.env.local
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -205,3 +209,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+.python-version
+
+# Airflow
+src/airflow/logs/
+src/airflow/plugins/
+
+# Docker volumes
+src/app/mongo_data/
+src/dwh/postgres_data/
