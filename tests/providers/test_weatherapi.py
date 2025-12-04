@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
-
 from app.models.weather import WeatherProvider
 from app.services.weather_providers.weatherapi import WeatherAPIProvider
 from tests.utils import MockAsyncClient

@@ -52,7 +52,7 @@ async def get_current_weather(
     request: Request,
     lat: float = Query(..., description="Широта"),
     lon: float = Query(..., description="Долгота"),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> AggregatedWeatherResponse:
     client = _get_http_client(request)
 

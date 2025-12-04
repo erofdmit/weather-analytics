@@ -28,7 +28,9 @@ class WeatherAggregator:
             samples.append(result)
 
         avg_temp = _safe_mean(
-            sample.temperature_c for sample in samples if sample.temperature_c is not None
+            sample.temperature_c
+            for sample in samples
+            if sample.temperature_c is not None
         )
         avg_humidity = _safe_mean(
             sample.humidity for sample in samples if sample.humidity is not None
