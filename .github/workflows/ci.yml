@@ -27,9 +27,11 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies (main + dev)
+        working-directory: src/app
         run: uv sync
 
       - name: Run Ruff (linter)
+        working-directory: src/app
         run: uv run ruff check .
 
   test:
@@ -55,9 +57,11 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies (main + dev)
+        working-directory: src/app
         run: uv sync
 
       - name: Run tests (pytest)
+        working-directory: src/app
         run: uv run pytest
 
   deploy:
