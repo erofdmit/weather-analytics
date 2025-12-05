@@ -1,6 +1,7 @@
 """
-MongoDB integration module for weather analytics
+Модуль интеграции с MongoDB
 """
+
 import os
 from datetime import datetime
 from typing import Optional
@@ -12,25 +13,25 @@ from pymongo.database import Database
 
 
 class MongoDBClient:
-    """MongoDB client wrapper for weather data storage"""
-    
+    """Клиент для работы с MongoDB"""
+
     _instance: Optional["MongoDBClient"] = None
     _client: Optional[MongoClient] = None
     _db: Optional[Database] = None
     _weather_collection: Optional[Collection] = None
     _forecast_collection: Optional[Collection] = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
-    
+
     def __init__(self):
         if self._client is None:
             self._connect()
-    
+
     def _connect(self):
-        """Establish connection to MongoDB"""
+        """Установка соединения с MongoDB"""
         mongo_config = {
             "username": os.getenv("MONGO_INITDB_ROOT_USERNAME", "admin"),
             "password": os.getenv("MONGO_INITDB_ROOT_PASSWORD", "admin"),
@@ -38,33 +39,35 @@ class MongoDBClient:
             "port": int(os.getenv("MONGO_PORT", "27017")),
             "authSource": "admin",
         }
-        
-        logger.info(f"Connecting to MongoDB at {mongo_config['host']}:{mongo_config['port']}")
-        
+
+        logger.info(
+            f"Подключение к MongoDB: {mongo_config['host']}:{mongo_config['port']}"
+        )
+
         try:
             self._client = MongoClient(**mongo_config)
             self._db = self._client["weather_analytics_db"]
             self._weather_collection = self._db["weather_current"]
             self._forecast_collection = self._db["weather_forecast"]
-            
-            # Test connection
-            self._client.admin.command('ping')
-            logger.info("Successfully connected to MongoDB")
+
+            # Проверка соединения
+            self._client.admin.command("ping")
+            logger.info("Успешно подключились к MongoDB")
         except Exception as e:
-            logger.error(f"Failed to connect to MongoDB: {e}")
-            # Don't raise exception, allow app to run without MongoDB
+            logger.error(f"Не удалось подключиться к MongoDB: {e}")
+            # Не бросаем исключение, позволяем приложению работать без MongoDB
             self._client = None
-    
+
     @property
     def weather_collection(self) -> Optional[Collection]:
-        """Get current weather MongoDB collection"""
+        """Коллекция текущей погоды"""
         return self._weather_collection
-    
+
     @property
     def forecast_collection(self) -> Optional[Collection]:
-        """Get forecast MongoDB collection"""
+        """Коллекция прогнозов"""
         return self._forecast_collection
-    
+
     def save_current_weather(
         self,
         latitude: float,
@@ -72,26 +75,13 @@ class MongoDBClient:
         request_data: dict,
         response_data: dict,
         status_code: int,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
     ) -> bool:
-        """
-        Save current weather request and response to MongoDB
-        
-        Args:
-            latitude: Latitude coordinate
-            longitude: Longitude coordinate
-            request_data: Request parameters
-            response_data: API response data
-            status_code: HTTP status code
-            error_message: Error message if request failed
-            
-        Returns:
-            True if saved successfully, False otherwise
-        """
+        """Сохранение текущей погоды в MongoDB"""
         if self._weather_collection is None:
-            logger.warning("MongoDB weather collection not available, skipping save")
+            logger.warning("Коллекция погоды недоступна, пропускаем сохранение")
             return False
-        
+
         try:
             document = {
                 "type": "current",
@@ -102,17 +92,17 @@ class MongoDBClient:
                 "status_code": status_code,
                 "error_message": error_message,
                 "created_at": datetime.now(),
-                "updated_at": datetime.now()
+                "updated_at": datetime.now(),
             }
-            
+
             self._weather_collection.insert_one(document)
-            logger.info(f"Saved current weather to MongoDB for lat={latitude}, lon={longitude}")
+            logger.info(f"Сохранена текущая погода: lat={latitude}, lon={longitude}")
             return True
-            
+
         except Exception as e:
-            logger.error(f"Failed to save current weather to MongoDB: {e}")
+            logger.error(f"Ошибка сохранения текущей погоды: {e}")
             return False
-    
+
     def save_forecast(
         self,
         latitude: float,
@@ -121,27 +111,13 @@ class MongoDBClient:
         request_data: dict,
         response_data: dict,
         status_code: int,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
     ) -> bool:
-        """
-        Save forecast request and response to MongoDB
-        
-        Args:
-            latitude: Latitude coordinate
-            longitude: Longitude coordinate
-            hours: Forecast horizon in hours
-            request_data: Request parameters
-            response_data: API response data
-            status_code: HTTP status code
-            error_message: Error message if request failed
-            
-        Returns:
-            True if saved successfully, False otherwise
-        """
+        """Сохранение прогноза в MongoDB"""
         if self._forecast_collection is None:
-            logger.warning("MongoDB forecast collection not available, skipping save")
+            logger.warning("Коллекция прогнозов недоступна, пропускаем сохранение")
             return False
-        
+
         try:
             document = {
                 "type": "forecast",
@@ -153,145 +129,93 @@ class MongoDBClient:
                 "status_code": status_code,
                 "error_message": error_message,
                 "created_at": datetime.now(),
-                "updated_at": datetime.now()
+                "updated_at": datetime.now(),
             }
-            
+
             self._forecast_collection.insert_one(document)
-            logger.info(f"Saved forecast to MongoDB for lat={latitude}, lon={longitude}, hours={hours}")
+            logger.info(
+                f"Сохранён прогноз: lat={latitude}, lon={longitude}, hours={hours}"
+            )
             return True
-            
+
         except Exception as e:
-            logger.error(f"Failed to save forecast to MongoDB: {e}")
+            logger.error(f"Ошибка сохранения прогноза: {e}")
             return False
-    
+
     def get_recent_current_weather(self, limit: int = 10) -> list:
-        """
-        Get recent current weather data from MongoDB
-        
-        Args:
-            limit: Maximum number of records to return
-            
-        Returns:
-            List of current weather data documents
-        """
+        """Получение последних записей текущей погоды"""
         if self._weather_collection is None:
-            logger.warning("MongoDB weather collection not available")
+            logger.warning("Коллекция погоды недоступна")
             return []
-        
+
         try:
             cursor = self._weather_collection.find(
-                {},
-                sort=[("created_at", -1)],
-                limit=limit
+                {}, sort=[("created_at", -1)], limit=limit
             )
             return list(cursor)
         except Exception as e:
-            logger.error(f"Failed to fetch current weather from MongoDB: {e}")
+            logger.error(f"Ошибка получения текущей погоды: {e}")
             return []
-    
+
     def get_recent_forecasts(self, limit: int = 10) -> list:
-        """
-        Get recent forecast data from MongoDB
-        
-        Args:
-            limit: Maximum number of records to return
-            
-        Returns:
-            List of forecast data documents
-        """
+        """Получение последних прогнозов"""
         if self._forecast_collection is None:
-            logger.warning("MongoDB forecast collection not available")
+            logger.warning("Коллекция прогнозов недоступна")
             return []
-        
+
         try:
             cursor = self._forecast_collection.find(
-                {},
-                sort=[("created_at", -1)],
-                limit=limit
+                {}, sort=[("created_at", -1)], limit=limit
             )
             return list(cursor)
         except Exception as e:
-            logger.error(f"Failed to fetch forecasts from MongoDB: {e}")
+            logger.error(f"Ошибка получения прогнозов: {e}")
             return []
-    
+
     def get_current_weather_by_location(
-        self,
-        latitude: float,
-        longitude: float,
-        limit: int = 10
+        self, latitude: float, longitude: float, limit: int = 10
     ) -> list:
-        """
-        Get current weather data for specific location
-        
-        Args:
-            latitude: Latitude coordinate
-            longitude: Longitude coordinate
-            limit: Maximum number of records to return
-            
-        Returns:
-            List of current weather data documents for the location
-        """
+        """Получение текущей погоды для координат"""
         if self._weather_collection is None:
-            logger.warning("MongoDB weather collection not available")
+            logger.warning("Коллекция погоды недоступна")
             return []
-        
+
         try:
             cursor = self._weather_collection.find(
-                {
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "status_code": 200
-                },
+                {"latitude": latitude, "longitude": longitude, "status_code": 200},
                 sort=[("created_at", -1)],
-                limit=limit
+                limit=limit,
             )
             return list(cursor)
         except Exception as e:
-            logger.error(f"Failed to fetch current weather from MongoDB: {e}")
+            logger.error(f"Ошибка получения текущей погоды: {e}")
             return []
-    
+
     def get_forecasts_by_location(
-        self,
-        latitude: float,
-        longitude: float,
-        limit: int = 10
+        self, latitude: float, longitude: float, limit: int = 10
     ) -> list:
-        """
-        Get forecast data for specific location
-        
-        Args:
-            latitude: Latitude coordinate
-            longitude: Longitude coordinate
-            limit: Maximum number of records to return
-            
-        Returns:
-            List of forecast data documents for the location
-        """
+        """Получение прогнозов для координат"""
         if self._forecast_collection is None:
-            logger.warning("MongoDB forecast collection not available")
+            logger.warning("Коллекция прогнозов недоступна")
             return []
-        
+
         try:
             cursor = self._forecast_collection.find(
-                {
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "status_code": 200
-                },
+                {"latitude": latitude, "longitude": longitude, "status_code": 200},
                 sort=[("created_at", -1)],
-                limit=limit
+                limit=limit,
             )
             return list(cursor)
         except Exception as e:
-            logger.error(f"Failed to fetch forecasts from MongoDB: {e}")
+            logger.error(f"Ошибка получения прогнозов: {e}")
             return []
-    
+
     def close(self):
-        """Close MongoDB connection"""
+        """Закрытие соединения с MongoDB"""
         if self._client:
             self._client.close()
-            logger.info("MongoDB connection closed")
+            logger.info("Соединение с MongoDB закрыто")
 
 
-# Global instance
+# Глобальный экземпляр клиента
 mongo_client = MongoDBClient()

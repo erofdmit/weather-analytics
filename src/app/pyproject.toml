@@ -53,3 +53,10 @@ ignore = ["E501"]
 [tool.black]
 line-length = 88
 target-version = ["py311"]
+
+[dependency-groups]
+dev = [
+    "black>=25.11.0",
+    "mypy>=1.19.0",
+    "ruff>=0.14.7",
+]

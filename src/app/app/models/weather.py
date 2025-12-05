@@ -58,21 +58,15 @@ class ForecastPoint(BaseModel):
 
     time: datetime = Field(..., description="Момент времени прогноза")
     temperature_c: float = Field(..., description="Температура, °C")
-    wind_speed_kph: float | None = Field(
-        None, description="Скорость ветра, км/ч"
-    )
-    humidity: float | None = Field(
-        None, description="Относительная влажность, %"
-    )
+    wind_speed_kph: float | None = Field(None, description="Скорость ветра, км/ч")
+    humidity: float | None = Field(None, description="Относительная влажность, %")
 
 
 class ProviderForecast(BaseModel):
     """Прогноз от одного провайдера."""
 
     provider: WeatherProvider = Field(..., description="Имя провайдера")
-    points: list[ForecastPoint] = Field(
-        ..., description="Список точек прогноза"
-    )
+    points: list[ForecastPoint] = Field(..., description="Список точек прогноза")
 
 
 class AggregatedForecastResponse(BaseModel):

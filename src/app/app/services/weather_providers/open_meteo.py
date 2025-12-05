@@ -27,7 +27,7 @@ class OpenMeteoProvider(BaseWeatherProvider):
             "current_weather": True,
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
@@ -35,9 +35,9 @@ class OpenMeteoProvider(BaseWeatherProvider):
 
         return WeatherSample(
             provider=WeatherProvider.OPEN_METEO,
-            temperature_c=float(current.get("temperature")),
+            temperature_c=float(current.get("temperature")) if current.get("temperature") is not None else None,  # type: ignore[arg-type]
             wind_speed_kph=(
-                float(current.get("windspeed"))
+                float(current.get("windspeed"))  # type: ignore[arg-type]
                 if current.get("windspeed") is not None
                 else None
             ),

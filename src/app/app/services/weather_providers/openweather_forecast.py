@@ -41,7 +41,7 @@ class OpenWeatherMapForecastProvider(BaseForecastProvider):
             "cnt": max_points,
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
@@ -55,9 +55,7 @@ class OpenWeatherMapForecastProvider(BaseForecastProvider):
             temp = main.get("temp")
             hum = main.get("humidity")
             wind_ms = wind.get("speed")
-            wind_kph = (
-                float(wind_ms) * 3.6 if wind_ms is not None else None
-            )
+            wind_kph = float(wind_ms) * 3.6 if wind_ms is not None else None
 
             dt_val = item.get("dt")
             if isinstance(dt_val, (int, float)):
@@ -68,8 +66,8 @@ class OpenWeatherMapForecastProvider(BaseForecastProvider):
             points.append(
                 ForecastPoint(
                     time=t,
-                    temperature_c=float(temp),
-                    humidity=float(hum) if hum is not None else None,
+                    temperature_c=float(temp) if temp is not None else None,  # type: ignore[arg-type]
+                    humidity=float(hum) if hum is not None else None,  # type: ignore[arg-type]
                     wind_speed_kph=wind_kph,
                 )
             )

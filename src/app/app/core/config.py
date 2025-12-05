@@ -1,4 +1,4 @@
-from __future__ import annotations
+"""Конфиг приложения"""
 
 from functools import lru_cache
 

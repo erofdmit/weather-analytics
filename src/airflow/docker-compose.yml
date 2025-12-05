@@ -13,6 +13,17 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
     AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 10
+    # MongoDB configuration
+    MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+    MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    MONGO_HOST: ${MONGO_HOST}
+    MONGO_PORT: ${MONGO_PORT}
+    # PostgreSQL DWH configuration
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_HOST: ${POSTGRES_HOST}
+    POSTGRES_PORT: ${POSTGRES_PORT}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -60,16 +71,28 @@ services:
       timeout: 10s
       retries: 5
     restart: always
+    networks:
+      - default
+      - app_weather_network
+      - dwh_weather_dwh_network
 
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
     restart: always
+    networks:
+      - default
+      - app_weather_network
+      - dwh_weather_dwh_network
 
   airflow-worker:
     <<: *airflow-common
     command: celery worker
     restart: always
+    networks:
+      - default
+      - app_weather_network
+      - dwh_weather_dwh_network
 
   airflow-init:
     <<: *airflow-common
@@ -83,4 +106,12 @@ services:
 
 volumes:
   postgres-db-volume:
+
+networks:
+  default:
+    name: airflow_network
+  app_weather_network:
+    external: true
+  dwh_weather_dwh_network:
+    external: true
 

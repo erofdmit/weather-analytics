@@ -28,7 +28,7 @@ class WeatherbitProvider(BaseWeatherProvider):
             "key": self._api_key,
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 

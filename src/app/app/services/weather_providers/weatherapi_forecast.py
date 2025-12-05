@@ -13,7 +13,7 @@ from app.services.weather_providers.base import BaseForecastProvider
 class WeatherAPIForecastProvider(BaseForecastProvider):
     """
 
-      https://api.weatherapi.com/v1/forecast.json?key={KEY}&q={lat},{lon}&days={days}
+    https://api.weatherapi.com/v1/forecast.json?key={KEY}&q={lat},{lon}&days={days}
 
     """
 
@@ -40,7 +40,7 @@ class WeatherAPIForecastProvider(BaseForecastProvider):
             "alerts": "no",
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
@@ -64,9 +64,9 @@ class WeatherAPIForecastProvider(BaseForecastProvider):
                         time=_parse_time(t_raw),
                         temperature_c=float(temp_c),
                         humidity=float(hum) if hum is not None else None,
-                        wind_speed_kph=float(wind_kph)
-                        if wind_kph is not None
-                        else None,
+                        wind_speed_kph=(
+                            float(wind_kph) if wind_kph is not None else None
+                        ),
                     )
                 )
 

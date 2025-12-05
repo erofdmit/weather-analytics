@@ -28,7 +28,7 @@ class WeatherstackProvider(BaseWeatherProvider):
             "units": "m",
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
@@ -50,11 +50,11 @@ class WeatherstackProvider(BaseWeatherProvider):
 
         return WeatherSample(
             provider=WeatherProvider.WEATHERSTACK,
-            temperature_c=float(temp_c),
+            temperature_c=float(temp_c) if temp_c is not None else None,  # type: ignore[arg-type]
             wind_speed_kph=(
-                float(wind_speed_kph) if wind_speed_kph is not None else None
+                float(wind_speed_kph) if wind_speed_kph is not None else None  # type: ignore[arg-type]
             ),
-            humidity=float(humidity) if humidity is not None else None,
+            humidity=float(humidity) if humidity is not None else None,  # type: ignore[arg-type]
             condition=condition,
             observation_time=observation_time,
             raw=data,

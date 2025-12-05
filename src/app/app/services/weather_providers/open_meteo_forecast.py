@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-import httpx
-
 from app.models.weather import ForecastPoint, ProviderForecast, WeatherProvider
 from app.services.weather_providers.base import BaseForecastProvider
 
@@ -12,8 +10,8 @@ from app.services.weather_providers.base import BaseForecastProvider
 class OpenMeteoForecastProvider(BaseForecastProvider):
     """
 
-      https://api.open-meteo.com/v1/forecast?latitude=...&longitude=...&
-      hourly=temperature_2m,relativehumidity_2m,windspeed_10m&forecast_hours=...
+    https://api.open-meteo.com/v1/forecast?latitude=...&longitude=...&
+    hourly=temperature_2m,relativehumidity_2m,windspeed_10m&forecast_hours=...
 
     """
 
@@ -34,7 +32,7 @@ class OpenMeteoForecastProvider(BaseForecastProvider):
             "timezone": "auto",
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
