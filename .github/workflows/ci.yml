@@ -61,8 +61,7 @@ jobs:
         run: uv sync
 
       - name: Run tests (pytest)
-        working-directory: src/app
-        run: uv run pytest
+        run: uv run --directory src/app pytest ../../tests
 
   deploy:
     name: Deploy to Server
