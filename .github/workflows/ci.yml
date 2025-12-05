@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies (main + dev)
         working-directory: src/app
-        run: uv sync
+        run: uv sync --extra dev
 
       - name: Run Ruff (linter)
         working-directory: src/app
@@ -58,7 +58,7 @@ jobs:
 
       - name: Install dependencies (main + dev)
         working-directory: src/app
-        run: uv sync
+        run: uv sync --extra dev
 
       - name: Run tests (pytest)
         run: uv run --directory src/app pytest ../../tests
