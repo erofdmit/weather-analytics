@@ -12,7 +12,7 @@ from app.services.weather_providers.base import BaseForecastProvider
 class WeatherbitForecastProvider(BaseForecastProvider):
     """
 
-      https://api.weatherbit.io/v2.0/forecast/hourly?lat={lat}&lon={lon}&key={KEY}&hours={H}
+    https://api.weatherbit.io/v2.0/forecast/hourly?lat={lat}&lon={lon}&key={KEY}&hours={H}
 
     """
 
@@ -36,7 +36,7 @@ class WeatherbitForecastProvider(BaseForecastProvider):
             "hours": hours,
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 

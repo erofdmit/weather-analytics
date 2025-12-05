@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 import httpx
 
-from app.models.weather import WeatherSample, ProviderForecast
+from app.models.weather import ProviderForecast, WeatherSample
 
 
 class BaseWeatherProvider(ABC):

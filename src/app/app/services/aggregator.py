@@ -1,11 +1,17 @@
-from __future__ import annotations
-
 import asyncio
 from statistics import mean
 from typing import Iterable, List
 
-from app.models.weather import AggregatedForecastResponse, AggregatedWeatherResponse, ProviderForecast, WeatherSample
-from app.services.weather_providers.base import BaseForecastProvider, BaseWeatherProvider
+from app.models.weather import (
+    AggregatedForecastResponse,
+    AggregatedWeatherResponse,
+    ProviderForecast,
+    WeatherSample,
+)
+from app.services.weather_providers.base import (
+    BaseForecastProvider,
+    BaseWeatherProvider,
+)
 
 
 class WeatherAggregator:
@@ -25,7 +31,8 @@ class WeatherAggregator:
         for result in results:
             if isinstance(result, Exception):
                 continue
-            samples.append(result)
+            if isinstance(result, WeatherSample):
+                samples.append(result)
 
         avg_temp = _safe_mean(
             sample.temperature_c
@@ -53,7 +60,7 @@ def _safe_mean(values: Iterable[float]) -> float | None:
 
 
 class ForecastAggregator:
-    """Сервис, агрегирующий прогноз погоды от нескольких провайдеров."""
+    """Агрегатор прогнозов погоды от нескольких провайдеров"""
 
     def __init__(self, providers: Iterable[BaseForecastProvider]) -> None:
         self._providers: list[BaseForecastProvider] = list(providers)
@@ -70,9 +77,10 @@ class ForecastAggregator:
         forecasts: list[ProviderForecast] = []
         for result in results:
             if isinstance(result, Exception):
-                # TODO: логирование
+                # Пропускаем ошибки
                 continue
-            forecasts.append(result)
+            if isinstance(result, ProviderForecast):
+                forecasts.append(result)
 
         return AggregatedForecastResponse(
             latitude=lat,

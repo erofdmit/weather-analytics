@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, time as dtime
+from datetime import datetime
+from datetime import time as dtime
 from math import ceil
 from typing import Any
 
@@ -13,7 +14,7 @@ from app.services.weather_providers.base import BaseForecastProvider
 class WeatherstackForecastProvider(BaseForecastProvider):
     """
 
-      http://api.weatherstack.com/forecast?access_key={KEY}&query={lat,lon}&forecast_days={N}&hourly=1&units=m
+    http://api.weatherstack.com/forecast?access_key={KEY}&query={lat,lon}&forecast_days={N}&hourly=1&units=m
 
 
     """
@@ -41,7 +42,7 @@ class WeatherstackForecastProvider(BaseForecastProvider):
             "units": "m",
         }
 
-        response = await self._client.get(self.BASE_URL, params=params)
+        response = await self._client.get(self.BASE_URL, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
         data: dict[str, Any] = response.json()
 
@@ -69,9 +70,9 @@ class WeatherstackForecastProvider(BaseForecastProvider):
                         time=dt,
                         temperature_c=float(temp),
                         humidity=float(hum) if hum is not None else None,
-                        wind_speed_kph=float(wind_kph)
-                        if wind_kph is not None
-                        else None,
+                        wind_speed_kph=(
+                            float(wind_kph) if wind_kph is not None else None
+                        ),
                     )
                 )
 
