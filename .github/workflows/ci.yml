@@ -90,4 +90,3 @@ jobs:
             docker compose up -d --build
             docker image prune -f
             echo "✅ Deployment completed successfully!"
-            docker image prune -f
