@@ -2,6 +2,13 @@
 
 **Платформа для сбора, хранения и анализа данных о погоде из нескольких источников с ETL пайплайнами и Data Warehouse.**
 
+## Airflow
+
+http://82.26.151.110:8080/home
+
+login: teacher
+password: teacher123
+
 ## 🎯 Что это?
 
 Полнофункциональная система для:
@@ -92,16 +99,6 @@ curl "http://localhost:8000/api/weather/current?lat=55.75&lon=37.62"
 # Получить прогноз на 24 часа
 curl "http://localhost:8000/api/weather/forecast?lat=55.75&lon=37.62&hours=24"
 ```
-
-### 3. Доступ к сервисам
-
-| Сервис | URL | Credentials |
-|--------|-----|-------------|
-| Weather API | http://localhost:8000 | - |
-| API Docs (Swagger) | http://localhost:8000/docs | - |
-| Airflow UI | http://localhost:8080 | admin / admin |
-| MongoDB | localhost:27017 | admin / admin123 |
-| PostgreSQL DWH | localhost:5432 | postgres / postgres123 |
 
 ## 📊 Данные
 
@@ -269,23 +266,6 @@ SELECT COUNT(*) FROM raw.weather_current
 WHERE valid_to_dttm = '5999-01-01';
 ```
 
-### DBeaver
-
-Для визуального просмотра данных используйте DBeaver:
-
-**MongoDB:**
-- Host: localhost
-- Port: 27017
-- Database: weather_analytics_db
-- User: admin
-- Password: admin123
-
-**PostgreSQL:**
-- Host: localhost
-- Port: 5432
-- Database: weather_dwh
-- User: postgres
-- Password: postgres123
 
 ## 🎯 Особенности реализации
 
