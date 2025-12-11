@@ -17,6 +17,7 @@ with city_data as (
         count(*) as total_observations,
         count(distinct date_trunc('day', observation_timestamp)) as days_tracked
     from {{ ref('mart_weather_hourly') }}
+    where city is not null
     group by city, country, latitude, longitude
 ),
 
@@ -29,6 +30,7 @@ weather_stats as (
         round(avg(precipitation_mm)::numeric, 2) as avg_precipitation,
         round(avg(humidity_percent)::numeric, 1) as avg_humidity
     from {{ ref('mart_weather_hourly') }}
+    where city is not null
     group by city
 )
 

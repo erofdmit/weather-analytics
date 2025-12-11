@@ -30,10 +30,6 @@ parsed_data as (
         latitude,
         longitude,
 
-        -- Извлекаем данные из request
-        (request->>'city')::text as city,
-        (request->>'country')::text as country,
-
         -- Извлекаем агрегированные данные из response
         (response->'aggregated'->>'temperature_celsius')::float as temperature_celsius,
         (response->'aggregated'->>'humidity_percent')::float as humidity_percent,
@@ -62,12 +58,12 @@ parsed_data as (
 )
 
 select
-    id,
-    weather_id,
-    latitude,
-    longitude,
-    city,
-    country,
+    p.id,
+    p.weather_id,
+    p.latitude,
+    p.longitude,
+    c.city,
+    c.country,
     temperature_celsius,
     humidity_percent,
     wind_speed_ms,
@@ -86,5 +82,8 @@ select
     updated_at,
     valid_from_dttm,
     valid_to_dttm
-from parsed_data
+from parsed_data p
+left join {{ ref('cities') }} c
+    on round(p.latitude::numeric, 2) = round(c.latitude::numeric, 2)
+    and round(p.longitude::numeric, 2) = round(c.longitude::numeric, 2)
 where status_code = 200  -- Только успешные запросы
