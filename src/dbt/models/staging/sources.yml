@@ -1,0 +1,118 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Сырые данные из MongoDB, загруженные через Airflow ETL"
+    database: "{{ env_var('POSTGRES_DB', 'weather_dwh') }}"
+    schema: raw
+    tables:
+      - name: weather_current
+        description: "Текущие данные о погоде из нескольких источников (агрегированные)"
+        columns:
+          - name: id
+            description: "Первичный ключ"
+            tests:
+              - not_null
+              - unique
+
+          - name: weather_id
+            description: "MongoDB ObjectId в виде строки"
+            tests:
+              - not_null
+
+          - name: latitude
+            description: "Широта локации"
+            tests:
+              - not_null
+
+          - name: longitude
+            description: "Долгота локации"
+            tests:
+              - not_null
+
+          - name: request
+            description: "JSONB с параметрами запроса (город, координаты)"
+
+          - name: response
+            description: "JSONB с агрегированными данными о погоде"
+
+          - name: status_code
+            description: "HTTP статус код ответа"
+
+          - name: created_at
+            description: "Дата создания записи в MongoDB"
+            tests:
+              - not_null
+
+          - name: updated_at
+            description: "Дата последнего обновления"
+            tests:
+              - not_null
+
+          - name: valid_from_dttm
+            description: "Дата начала действия версии (SCD Type 2)"
+            tests:
+              - not_null
+
+          - name: valid_to_dttm
+            description: "Дата окончания действия версии (5999-01-01 для активных)"
+            tests:
+              - not_null
+
+      - name: weather_forecast
+        description: "Прогнозы погоды на несколько часов вперед"
+        columns:
+          - name: id
+            description: "Первичный ключ"
+            tests:
+              - not_null
+              - unique
+
+          - name: forecast_id
+            description: "MongoDB ObjectId в виде строки"
+            tests:
+              - not_null
+
+          - name: latitude
+            description: "Широта локации"
+            tests:
+              - not_null
+
+          - name: longitude
+            description: "Долгота локации"
+            tests:
+              - not_null
+
+          - name: hours
+            description: "Количество часов прогноза"
+            tests:
+              - not_null
+
+          - name: request
+            description: "JSONB с параметрами запроса"
+
+          - name: response
+            description: "JSONB с массивом прогнозов по часам"
+
+          - name: status_code
+            description: "HTTP статус код ответа"
+
+          - name: created_at
+            description: "Дата создания записи"
+            tests:
+              - not_null
+
+          - name: updated_at
+            description: "Дата последнего обновления"
+            tests:
+              - not_null
+
+          - name: valid_from_dttm
+            description: "Дата начала действия версии (SCD Type 2)"
+            tests:
+              - not_null
+
+          - name: valid_to_dttm
+            description: "Дата окончания действия версии"
+            tests:
+              - not_null

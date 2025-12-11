@@ -1,0 +1,15 @@
+# dbt Core с поддержкой PostgreSQL
+dbt-core==1.7.17
+dbt-postgres==1.7.17
+
+# Для генерации документации
+Jinja2>=3.1.2
+
+# Библиотеки для работы с PostgreSQL
+psycopg2-binary>=2.9.9
+
+# Фиксируем protobuf для совместимости
+protobuf==4.25.3
+
+# Для логирования
+loguru>=0.7.2
