@@ -1,0 +1,41 @@
+name: 'weather_analytics'
+version: '1.0.0'
+
+# Profile configuration for database connection
+profile: 'weather_analytics'
+
+# Project directories configuration
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Model configurations
+models:
+  weather_analytics:
+    # STG layer - incremental views for raw data access
+    stg:
+      +materialized: incremental
+      +schema: stg
+      +incremental_strategy: delete+insert
+
+    # ODS layer - incremental tables with normalized data
+    ods:
+      +materialized: incremental
+      +schema: ods
+      +incremental_strategy: merge
+
+    # DM layer - incremental data marts for dashboards
+    dm:
+      +materialized: incremental
+      +schema: dm
+      +incremental_strategy: merge
+
+  # Elementary data quality monitoring
+  elementary:
+    +schema: elementary

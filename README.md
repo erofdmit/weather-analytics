@@ -1,142 +1,77 @@
 # Weather Analytics Platform
 
-**Платформа для сбора, хранения и анализа данных о погоде из нескольких источников с ETL пайплайнами и Data Warehouse.**
+Платформа для сбора, хранения и анализа данных о погоде от различных провайдеров с целью сравнения точности их прогнозов.
 
-## Airflow
+## 📋 Оглавление
 
-http://82.26.151.110:8080/home
+- [Архитектура решения](#архитектура-решения)
+- [Структура проекта](#структура-проекта)
+- [Компоненты системы](#компоненты-системы)
+- [Быстрый старт](#быстрый-старт)
+- [Технологический стек](#технологический-стек)
 
-login: teacher
-password: teacher123
-
-## 🎯 Что это?
-
-Полнофункциональная система для:
-- 🌍 Сбора текущих данных и прогнозов погоды для **18 городов** (Россия, Европа, Америка)
-- 📊 Агрегации данных из **5 погодных API** (Open-Meteo, OpenWeatherMap, WeatherAPI, Weatherbit, Weatherstack)
-- 💾 Хранения сырых данных в **MongoDB**
-- 🔄 ETL процессов с **Apache Airflow** для загрузки в **PostgreSQL DWH**
-- 🔍 Анализа данных через **Jupyter Notebook** и **pandas**
-
-## 🏗️ Архитектура
+## 🏗️ Архитектура решения
 
 ```
-┌─────────────────┐
-│  Weather APIs   │ ← 5 источников данных
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  FastAPI App    │ ← Агрегация и нормализация
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│    MongoDB      │ ← Сырые данные (Raw Layer)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Airflow ETL    │ ← Оркестрация пайплайнов
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ PostgreSQL DWH  │ ← Аналитическое хранилище
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Weather API Providers                     │
+│  (OpenMeteo, OpenWeatherMap, WeatherAPI, WeatherBit, etc.)  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    FastAPI Application                       │
+│              (src/app - сбор данных)                         │
+│  - Агрегация данных от провайдеров                          │
+│  - REST API для запросов                                    │
+│  - Кэширование и обработка ошибок                           │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      MongoDB (Raw Data)                      │
+│              (Сырые данные в JSONB)                          │
+│  - SCD Type 2 для истории изменений                         │
+│  - Гибкая схема для разных провайдеров                      │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Apache Airflow (ETL)                      │
+│              (src/airflow - оркестрация)                     │
+│  - Расписание загрузки данных                               │
+│  - Перенос MongoDB → PostgreSQL                             │
+│  - Запуск dbt трансформаций                                 │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   PostgreSQL (DWH/Raw)                       │
+│              (src/dwh - хранилище данных)                    │
+│  - Raw слой: данные из MongoDB                              │
+│  - SCD Type 2 для отслеживания изменений                    │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    DBT (Transformations)                     │
+│              (src/dbt - трансформации)                       │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ STG: Парсинг JSONB → структурированные данные       │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ ODS: Нормализация и обогащение данных               │   │
+│  └─────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ DM: Финальные витрины для аналитики                 │   │
+│  │  - Точность прогнозов по интервалам                 │   │
+│  │  - Рейтинг провайдеров                               │   │
+│  │  - Статистика по городам                             │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    BI Tools / Dashboards                     │
+│  - Сравнение точности провайдеров                           │
+│  - Анализ погодных трендов                                  │
+│  - Мониторинг качества данных (Elementary)                  │
+└─────────────────────────────────────────────────────────────┘
 ```
-
-## 📦 Технологический стек
-
-**Backend & API:**
-- Python 3.11
-- FastAPI + httpx (async)
-- Pydantic (валидация данных)
-
-**Базы данных:**
-- MongoDB (NoSQL для сырых данных)
-- PostgreSQL 16 (реляционное DWH)
-
-**Оркестрация:**
-- Apache Airflow (ETL пайплайны)
-- Celery + Redis (распределённые задачи)
-
-**Инструменты разработки:**
-- uv (управление зависимостями)
-- Ruff (линтер)
-- Black (форматтер)
-- MyPy (проверка типов)
-- pytest (тестирование)
-
-**Инфраструктура:**
-- Docker & Docker Compose
-- GitHub Actions (CI/CD)
-
-## 🚀 Быстрый старт
-
-### 1. Запуск всех сервисов
-
-```bash
-# Weather App + MongoDB
-cd src/app && docker compose up -d && cd ../..
-
-# PostgreSQL DWH
-cd src/dwh && docker compose up -d && cd ../..
-
-# Airflow (scheduler, worker, webserver)
-cd src/airflow && docker compose up -d && cd ../..
-```
-
-### 2. Проверка работы
-
-```bash
-# Проверить API
-curl http://localhost:8000/api/weather/health
-
-# Получить текущую погоду для Москвы
-curl "http://localhost:8000/api/weather/current?lat=55.75&lon=37.62"
-
-# Получить прогноз на 24 часа
-curl "http://localhost:8000/api/weather/forecast?lat=55.75&lon=37.62&hours=24"
-```
-
-## 📊 Данные
-
-### Города (18 городов)
-
-**Россия (8):** Москва, Санкт-Петербург, Новосибирск, Екатеринбург, Казань, Владивосток, Мурманск, Южно-Сахалинск
-
-**Европа (5):** Лондон, Париж, Берлин, Мадрид, Рим
-
-**Америка (5):** Нью-Йорк, Лос-Анджелес, Чикаго, Майами, Торонто
-
-### Горизонты прогнозов
-
-1, 5, 10, 24, 48, 72, 96, 120, 144, 168 часов (до 7 дней)
-
-### Расписание сбора данных
-
-- **Текущая погода:** каждый час для всех 18 городов
-- **Прогнозы:** каждый час для всех 18 городов × 10 горизонтов = 180 запросов
-- **ETL в DWH:** каждый час (инкрементальная загрузка)
-
-## 🔄 Airflow DAGs
-
-### 1. `weather_data_collection`
-- **Расписание:** Каждый час
-- **Задачи:**
-  - `collect_current_weather` — сбор текущих данных
-  - `collect_forecast_weather` — сбор прогнозов
-- **Результат:** Данные сохраняются в MongoDB
-
-### 2. `connector__mongo_postgres`
-- **Расписание:** Каждый час
-- **Задачи:**
-  - `move_weather_data_to_dwh` — ETL из MongoDB в PostgreSQL
-- **Особенности:**
-  - Инкрементальная загрузка (только новые данные)
-  - SCD Type 2 (версионирование изменений)
-  - Две таблицы: `raw.weather_current` и `raw.weather_forecast`
 
 ## 📁 Структура проекта
 
@@ -144,183 +79,264 @@ curl "http://localhost:8000/api/weather/forecast?lat=55.75&lon=37.62&hours=24"
 weather-analytics/
 ├── src/
 │   ├── app/                    # FastAPI приложение
-│   │   ├── app/
-│   │   │   ├── api/           # API endpoints
-│   │   │   ├── core/          # Конфигурация
-│   │   │   ├── db/            # MongoDB клиент
-│   │   │   ├── models/        # Pydantic модели
-│   │   │   └── services/      # Бизнес-логика
-│   │   ├── Dockerfile
-│   │   ├── docker-compose.yml
-│   │   └── pyproject.toml
+│   │   ├── api/                # REST API endpoints
+│   │   ├── services/           # Бизнес-логика
+│   │   ├── models/             # Pydantic модели
+│   │   └── main.py             # Точка входа
 │   │
-│   ├── dwh/                   # PostgreSQL Data Warehouse
-│   │   └── docker-compose.yml
+│   ├── airflow/                # Apache Airflow DAGs
+│   │   ├── dags/               # ETL pipeline DAGs
+│   │   ├── plugins/            # Кастомные операторы
+│   │   └── docker-compose.yml  # Airflow setup
 │   │
-│   └── airflow/               # Apache Airflow
-│       ├── dags/
-│       │   ├── weather_data_collection_dag.py
-│       │   ├── connector__mongo_postgres_dag.py
-│       │   └── connector__mongo_postgres_logic.py
-│       ├── Dockerfile
-│       ├── docker-compose.yml
-│       └── requirements.txt
+│   ├── dwh/                    # Data Warehouse (PostgreSQL)
+│   │   ├── docker-compose.yml  # PostgreSQL + dbt setup
+│   │   └── init/               # Инициализация схем
+│   │
+│   └── dbt/                    # DBT проект
+│       ├── models/             # SQL модели
+│       │   ├── stg/            # Staging layer
+│       │   ├── ods/            # Operational Data Store
+│       │   └── dm/             # Data Marts
+│       ├── tests/              # Кастомные тесты
+│       ├── macros/             # Переиспользуемые макросы
+│       └── README.md           # Документация dbt
 │
-├── test/                      # Jupyter notebooks для анализа
-│   └── check.ipynb
-│
-├── .github/workflows/         # CI/CD
-│   └── ci.yml
-│
-└── README.md
+├── docker-compose.yml          # Общий docker compose
+└── README.md                   # Этот файл
 ```
 
-## 🛠️ Разработка
+## 🔧 Компоненты системы
 
-### Установка зависимостей
+### 1. FastAPI Application (`src/app`)
+
+**Назначение:** Сбор данных от провайдеров погоды
+
+**Функциональность:**
+- Агрегация данных от 5+ провайдеров
+- REST API для запросов текущей погоды и прогнозов
+- Кэширование для оптимизации запросов
+- Обработка ошибок и retry логика
+
+**Технологии:** FastAPI, Pydantic, aiohttp, MongoDB
+
+### 2. Apache Airflow (`src/airflow`)
+
+**Назначение:** Оркестрация ETL процессов
+
+**Функциональность:**
+- Расписание загрузки данных (hourly/daily)
+- Перенос данных MongoDB → PostgreSQL
+- Запуск dbt трансформаций
+- Мониторинг и алертинг
+
+**Технологии:** Apache Airflow, Python, Docker
+
+### 3. PostgreSQL DWH (`src/dwh`)
+
+**Назначение:** Хранилище данных
+
+**Структура:**
+- **raw** схема - сырые данные из MongoDB
+- **stg** схема - staging views
+- **ods** схема - нормализованные данные
+- **dm** схема - финальные витрины
+- **elementary** схема - мониторинг качества
+
+**Технологии:** PostgreSQL 16, Docker
+
+### 4. DBT Project (`src/dbt`)
+
+**Назначение:** Трансформация данных
+
+**Слои:**
+- **STG** - парсинг JSONB, views
+- **ODS** - нормализация, инкрементальные таблицы
+- **DM** - агрегация, финальные витрины
+
+**Особенности:**
+- Инкрементальная загрузка (delete+insert, merge)
+- Все 4 типа dbt-core тестов
+- Все 6 типов Elementary тестов
+- Полная документация моделей
+- Теги для организации
+
+**Технологии:** dbt-core, dbt-postgres, elementary-data
+
+## 🚀 Быстрый старт
+
+### Предварительные требования
+
+- Docker & Docker Compose
+- Python 3.11+
+- 8GB RAM минимум
+
+### 1. Клонирование и настройка
 
 ```bash
-# Установить uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# Клонировать репозиторий
+git clone <repository-url>
+cd weather-analytics
 
-# Установить зависимости
-cd src/app
-uv sync --dev
+# Создать .env файлы
+cp src/app/.env.example src/app/.env
+cp src/dwh/.env.example src/dwh/.env
+cp src/airflow/.env.example src/airflow/.env
+
+# Отредактировать .env файлы с вашими настройками
 ```
 
-### Запуск локально
+### 2. Запуск компонентов
 
 ```bash
-cd src/app
-
-# Запустить только MongoDB
-docker compose up -d mongodb
-
-# Запустить приложение
-MONGO_HOST=localhost uv run uvicorn app.main:app --reload
-```
-
-### Линтинг и форматирование
-
-```bash
-cd src/app
-
-# Проверка кода
-uv run ruff check .
-
-# Автоматическое исправление
-uv run ruff check . --fix
-
-# Форматирование
-uv run black .
-
-# Проверка типов
-uv run mypy app/ --ignore-missing-imports
-```
-
-### Тестирование
-
-```bash
-cd src/app
-uv run pytest -v
-```
-
-## 📊 Анализ данных
-
-Jupyter Notebook для анализа данных: `test/check.ipynb`
-
-```bash
-# Установить зависимости
-pip install jupyter pandas pymongo sqlalchemy psycopg2-binary
-
-# Запустить Jupyter
-jupyter notebook test/check.ipynb
-```
-
-Notebook содержит:
-- Подключение к MongoDB и PostgreSQL
-- Загрузку данных в pandas DataFrame
-- Базовый анализ и визуализацию
-
-## 🔍 Проверка данных
-
-### MongoDB
-
-```bash
-cd src/app
-python check_mongo.py
-```
-
-### PostgreSQL DWH
-
-```bash
+# Запустить PostgreSQL и dbt
 cd src/dwh
-docker compose exec postgres psql -U postgres -d weather_dwh
+docker compose up -d
 
-# Примеры запросов:
-SELECT COUNT(*) FROM raw.weather_current;
-SELECT COUNT(*) FROM raw.weather_forecast;
+# Запустить FastAPI приложение
+cd ../app
+docker compose up -d
 
-# Активные записи (SCD Type 2)
-SELECT COUNT(*) FROM raw.weather_current 
-WHERE valid_to_dttm = '5999-01-01';
+# Запустить Airflow
+cd ../airflow
+docker compose up -d
 ```
 
+### 3. Инициализация dbt
 
-## 🎯 Особенности реализации
+```bash
+# Зайти в dbt контейнер
+docker compose exec dbt bash
 
-### ETL процесс
+# Установить пакеты
+dbt deps
 
-1. **Extract:** Получение данных из MongoDB с фильтрацией по `updated_at`
-2. **Transform:** Конвертация datetime в строки, подготовка JSON
-3. **Load:** Загрузка в PostgreSQL с применением SCD Type 2
+# Запустить модели
+dbt run --full-refresh
 
-### SCD Type 2 (Slowly Changing Dimensions)
+# Запустить тесты
+dbt test
 
-Каждая запись имеет:
-- `valid_from_dttm` — дата начала актуальности
-- `valid_to_dttm` — дата окончания актуальности (5999-01-01 для текущих)
-
-При изменении данных:
-1. Старая версия получает `valid_to_dttm = NOW()`
-2. Создаётся новая версия с `valid_to_dttm = 5999-01-01`
-
-### Качество кода
-
-✅ Все проверки пройдены:
-- **Ruff** (линтер) — 0 ошибок
-- **Black** (форматтер) — код отформатирован
-- **MyPy** (типы) — основные проверки пройдены
-- **PEP8** — соответствие стандартам
-
-## 📝 API Endpoints
-
-### Текущая погода
-```
-GET /api/weather/current?lat={lat}&lon={lon}
+# Сгенерировать документацию
+dbt docs generate
+dbt docs serve --port 8080
 ```
 
-### Прогноз погоды
-```
-GET /api/weather/forecast?lat={lat}&lon={lon}&hours={hours}
+### 4. Проверка работы
+
+```bash
+# FastAPI docs
+open http://localhost:8000/docs
+
+# Airflow UI
+open http://localhost:8080
+
+# dbt docs
+open http://localhost:8081
+
+# Elementary report
+edr monitor --port 8082
 ```
 
-### История (из MongoDB)
-```
-GET /api/weather/history/current/recent?limit={limit}
-GET /api/weather/history/current/location?lat={lat}&lon={lon}&limit={limit}
-GET /api/weather/history/forecast/recent?limit={limit}
-GET /api/weather/history/forecast/location?lat={lat}&lon={lon}&limit={limit}
+## 🛠️ Технологический стек
+
+### Backend
+- **FastAPI** - REST API
+- **Pydantic** - валидация данных
+- **aiohttp** - асинхронные HTTP запросы
+
+### Databases
+- **MongoDB** - хранение сырых данных
+- **PostgreSQL 16** - DWH
+
+### Data Pipeline
+- **Apache Airflow** - оркестрация ETL
+- **dbt-core** - трансформации данных
+- **elementary-data** - мониторинг качества
+
+### DevOps
+- **Docker & Docker Compose** - контейнеризация
+- **pre-commit** - линтеры и форматтеры
+- **pytest** - тестирование
+
+### Monitoring & Quality
+- **Elementary** - data quality monitoring
+- **dbt tests** - валидация данных
+- **Airflow monitoring** - pipeline observability
+
+## 📊 Цель проекта
+
+**Основная задача:** Сравнение точности прогнозов погоды от разных провайдеров
+
+**Метрики сравнения:**
+- MAE (Mean Absolute Error) - средняя абсолютная ошибка
+- RMSE (Root Mean Square Error) - среднеквадратичная ошибка
+- Accuracy % - процент точных прогнозов (±2°C, ±5°C)
+- Сравнение по временным интервалам (1h, 3h, 6h, 12h, 24h, 48h)
+
+**Витрины для анализа:**
+1. `dm_forecast_accuracy_by_interval` - точность по интервалам
+2. `dm_provider_ranking` - общий рейтинг провайдеров
+3. `dm_city_weather_summary` - статистика по городам
+
+## 📚 Документация
+
+- [DBT Project README](src/dbt/README.md) - детальная документация dbt проекта
+- [API Documentation](http://localhost:8000/docs) - FastAPI Swagger docs
+- [DBT Docs](http://localhost:8081) - автогенерируемая документация моделей
+- [Elementary Report](http://localhost:8082) - отчет о качестве данных
+
+## 🧪 Тестирование
+
+### dbt тесты
+
+```bash
+# Все тесты
+dbt test
+
+# По слоям
+dbt test --select stg
+dbt test --select ods
+dbt test --select dm
+
+# Elementary тесты
+dbt test --select tag:elementary
 ```
 
-### Health check
+### Python тесты
+
+```bash
+# Unit тесты
+pytest src/app/tests/
+
+# Integration тесты
+pytest src/app/tests/integration/
 ```
-GET /api/weather/health
-```
 
-## 🤝 Авторы
+## 🔐 Best Practices
 
-- Dmitry Erofeev
-- Eduard Polyakov
-- Maxim Piskaev
+✅ **Реализовано:**
+- Трехслойная архитектура (STG → ODS → DM)
+- Инкрементальная загрузка данных
+- Все типы dbt-core и Elementary тестов
+- Полная документация моделей
+- Теги для организации
+- Jinja-шаблоны в каждой модели
+- Оконные функции и CTE
+- Комментарии в сложных местах
+- Pre-commit хуки (линтеры, форматтеры)
+- Единообразное форматирование SQL
 
+## 📈 Roadmap
+
+- [ ] Добавить больше провайдеров погоды
+- [ ] Реализовать ML модели для прогнозирования
+- [ ] Создать Grafana дашборды
+- [ ] Добавить алертинг в Telegram/Slack
+- [ ] Оптимизация производительности запросов
+
+---
+
+**Версия:** 1.0.0  
+**Последнее обновление:** 2025-12-12  
+**Автор:** Weather Analytics Team

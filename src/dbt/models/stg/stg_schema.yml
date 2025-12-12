@@ -1,0 +1,130 @@
+version: 2
+
+models:
+  - name: stg_weather_current
+    description: >
+      Staging модель для текущей погоды от разных провайдеров.
+      Разворачивает samples из JSONB в отдельные строки (один провайдер = одна строка).
+      Извлекает данные из raw.weather_current и нормализует их для дальнейшей обработки.
+    config:
+      tags: ['stg', 'weather', 'current']
+    columns:
+      - name: weather_id
+        description: "MongoDB ObjectId в виде строки"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: city
+        description: "Название города"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: country
+        description: "Страна"
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      
+      - name: provider
+        description: "Провайдер погодных данных"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit', 'weatherstack']
+              config:
+                severity: error
+      
+      - name: observation_time
+        description: "Время наблюдения погоды"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: temperature_celsius
+        description: "Температура в градусах Цельсия"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> -100 and < 60"
+              config:
+                severity: warn
+      
+      - name: humidity_percent
+        description: "Влажность в процентах"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0 and <= 100"
+              config:
+                severity: warn
+
+  - name: stg_weather_forecast
+    description: >
+      Staging модель для прогнозов погоды от разных провайдеров.
+      Разворачивает forecasts по провайдерам и points по часам.
+      Извлекает данные из raw.weather_forecast и нормализует их.
+    config:
+      tags: ['stg', 'weather', 'forecast']
+    columns:
+      - name: forecast_id
+        description: "ID прогноза из MongoDB"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: city
+        description: "Название города"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: provider
+        description: "Провайдер прогноза погоды"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit']
+              config:
+                severity: error
+      
+      - name: forecast_timestamp
+        description: "Временная метка прогноза (на какое время прогноз)"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: hours_ahead
+        description: "На сколько часов вперед сделан прогноз"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: ">= 0 and <= 200"
+              config:
+                severity: warn
+      
+      - name: temperature_celsius
+        description: "Прогнозируемая температура"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> -100 and < 60"
+              config:
+                severity: warn

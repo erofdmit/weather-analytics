@@ -1,0 +1,28 @@
+[sqlfluff]
+dialect = postgres
+templater = dbt
+exclude_rules = L034,L036
+max_line_length = 100
+
+[sqlfluff:templater:dbt]
+project_dir = src/dbt
+profiles_dir = src/dbt
+profile = weather_analytics
+target = dev
+
+[sqlfluff:indentation]
+indent_unit = space
+tab_space_size = 4
+
+[sqlfluff:rules]
+capitalisation_policy = lower
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:L010]
+capitalisation_policy = lower
+
+[sqlfluff:rules:L014]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:L030]
+capitalisation_policy = lower
