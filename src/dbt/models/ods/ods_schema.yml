@@ -1,0 +1,145 @@
+version: 2
+
+models:
+  - name: ods_weather_observations
+    description: >
+      ODS модель для наблюдений за погодой от разных провайдеров.
+      Нормализованные данные о текущей погоде с вычисляемыми полями.
+      Инкрементальная загрузка с стратегией delete+insert.
+    config:
+      tags: ['ods', 'weather', 'observations']
+    tests:
+      # Elementary: проверка свежести данных
+      - elementary.freshness_anomalies:
+          timestamp_column: observation_time
+          time_bucket:
+            period: hour
+            count: 1
+      # Elementary: проверка объема данных
+      - elementary.volume_anomalies:
+          timestamp_column: observation_time
+          time_bucket:
+            period: day
+            count: 1
+    columns:
+      - name: observation_id
+        description: "Суррогатный ключ (city + provider + observation_time)"
+        data_tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+      
+      - name: city
+        description: "Название города"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - relationships:
+              to: ref('ods_weather_forecasts')
+              field: city
+              config:
+                severity: warn
+      
+      - name: provider
+        description: "Провайдер погодных данных"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit', 'weatherstack']
+              config:
+                severity: error
+          # Elementary: аномалии в распределении провайдеров
+          - elementary.dimension_anomalies:
+              dimensions:
+                - provider
+              timestamp_column: observation_time
+      
+      - name: observation_time
+        description: "Время наблюдения"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: temperature_celsius
+        description: "Температура в °C"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          # Elementary: аномалии в колонке температуры
+          - elementary.column_anomalies:
+              column_anomalies:
+                - zero_count
+                - null_count
+                - min
+                - max
+              timestamp_column: observation_time
+      
+      - name: wind_direction_cardinal
+        description: "Направление ветра (стороны света)"
+        data_tests:
+          - accepted_values:
+              values: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'Unknown']
+              config:
+                severity: warn
+
+  - name: ods_weather_forecasts
+    description: >
+      ODS модель для прогнозов погоды от разных провайдеров.
+      Фильтрует только прогнозы на фиксированные интервалы (1h, 3h, 6h, 12h, 24h, 48h).
+      Инкрементальная загрузка с стратегией merge.
+    config:
+      tags: ['ods', 'weather', 'forecasts']
+    columns:
+      - name: forecast_id
+        description: "Суррогатный ключ (city + provider + forecast_timestamp + hours_ahead_interval)"
+        data_tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+      
+      - name: city
+        description: "Название города"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: provider
+        description: "Провайдер прогноза"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit']
+              config:
+                severity: error
+      
+      - name: hours_ahead_interval
+        description: "Фиксированный временной интервал прогноза"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              values: [1, 3, 6, 12, 24, 48]
+              config:
+                severity: error
+      
+      - name: temperature_celsius
+        description: "Прогнозируемая температура в °C"
+        data_tests:
+          - not_null:
+              config:
+                severity: error

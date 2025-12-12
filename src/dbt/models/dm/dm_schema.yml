@@ -1,0 +1,163 @@
+version: 2
+
+models:
+  - name: dm_forecast_accuracy_by_interval
+    description: >
+      DM витрина для дашборда "Provider Performance Comparison".
+      Показывает метрики точности прогнозов (MAE, RMSE, accuracy%) 
+      для каждого провайдера на разных временных горизонтах.
+    config:
+      tags: ['dm', 'analytics', 'forecast_accuracy']
+    tests:
+      # Elementary: проверка аномалий во всех колонках
+      - elementary.all_columns_anomalies:
+          timestamp_column: dbt_updated_at
+          exclude_prefix: "dbt_"
+      # Elementary: проверка событий (обновлений таблицы)
+      - elementary.event_freshness_anomalies:
+          event_timestamp_column: dbt_updated_at
+          update_timestamp_column: dbt_updated_at
+    columns:
+      - name: provider
+        description: "Провайдер прогноза"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: hours_ahead_interval
+        description: "Временной интервал прогноза (1, 3, 6, 12, 24, 48 часов)"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              values: [1, 3, 6, 12, 24, 48]
+              config:
+                severity: error
+      
+      - name: total_forecasts
+        description: "Общее количество прогнозов"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: error
+      
+      - name: temperature_mae
+        description: "Mean Absolute Error для температуры (°C)"
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      
+      - name: accuracy_within_2deg_pct
+        description: "Процент прогнозов с точностью ±2°C"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0 and <= 100"
+              config:
+                severity: warn
+
+  - name: dm_provider_ranking
+    description: >
+      DM витрина для дашборда "Overall Provider Ranking".
+      Агрегированный рейтинг провайдеров на основе всех метрик точности.
+      Включает общий рейтинг и ранги по категориям (краткосрочные/долгосрочные прогнозы).
+    config:
+      tags: ['dm', 'analytics', 'ranking']
+    columns:
+      - name: provider
+        description: "Провайдер прогноза"
+        data_tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+      
+      - name: overall_rank
+        description: "Общий рейтинг провайдера (1 = лучший)"
+        data_tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+      
+      - name: avg_temperature_mae
+        description: "Средний MAE температуры по всем интервалам"
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      
+      - name: total_forecasts_all_intervals
+        description: "Общее количество прогнозов по всем интервалам"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: error
+
+  - name: dm_city_weather_summary
+    description: >
+      DM витрина для дашборда "City Weather Overview".
+      Агрегированная статистика по каждому городу с историческими данными.
+    config:
+      tags: ['dm', 'analytics', 'city_summary']
+    columns:
+      - name: city
+        description: "Название города"
+        data_tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+      
+      - name: country
+        description: "Страна"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: days_tracked
+        description: "Количество дней наблюдений"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: error
+      
+      - name: providers_count
+        description: "Количество провайдеров для этого города"
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: warn

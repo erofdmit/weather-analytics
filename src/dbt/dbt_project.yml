@@ -1,69 +1,41 @@
 name: 'weather_analytics'
 version: '1.0.0'
-config-version: 2
 
-# Профиль для подключения к БД
+# Profile configuration for database connection
 profile: 'weather_analytics'
 
-# Директории
+# Project directories configuration
 model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
-snapshot-paths: ["snapshots"]
 
 clean-targets:
   - "target"
   - "dbt_packages"
-  - "logs"
 
-# Настройки моделей
+# Model configurations
 models:
   weather_analytics:
-    # Staging слой - view для быстрого доступа
-    staging:
-      +materialized: view
-      +schema: staging
-      +tags:
-        - "staging"
+    # STG layer - incremental views for raw data access
+    stg:
+      +materialized: incremental
+      +schema: stg
+      +incremental_strategy: delete+insert
 
-    # Marts слой - таблицы для аналитики
-    marts:
-      +materialized: table
-      +schema: marts
-      +tags:
-        - "marts"
+    # ODS layer - incremental tables with normalized data
+    ods:
+      +materialized: incremental
+      +schema: ods
+      +incremental_strategy: merge
 
-# Настройки для seeds
-seeds:
-  weather_analytics:
-    +schema: seeds
-    +tags:
-      - "seeds"
+    # DM layer - incremental data marts for dashboards
+    dm:
+      +materialized: incremental
+      +schema: dm
+      +incremental_strategy: merge
 
-# Настройки для snapshots
-snapshots:
-  weather_analytics:
-    +target_schema: snapshots
-    +strategy: timestamp
-    +unique_key: id
-    +updated_at: updated_at
-
-# Переменные проекта
-vars:
-  # Можно использовать в моделях через {{ var('start_date') }}
-  start_date: '2025-01-01'
-  # Города для анализа (можно расширять)
-  cities:
-    - 'Moscow'
-    - 'London'
-    - 'New York'
-    - 'Tokyo'
-    - 'Paris'
-    - 'Berlin'
-    - 'Madrid'
-    - 'Rome'
-
-# Документация проекта
-docs-paths: ["docs"]
+  # Elementary data quality monitoring
+  elementary:
+    +schema: elementary

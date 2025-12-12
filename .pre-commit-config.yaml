@@ -1,0 +1,66 @@
+repos:
+  # Python code formatting and linting
+  - repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+      - id: black
+        language_version: python3.11
+        files: ^src/app/.*\.py$
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+        files: ^src/app/.*\.py$
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ["--max-line-length=100", "--extend-ignore=E203,W503"]
+        files: ^src/app/.*\.py$
+
+  # YAML formatting and validation
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [yaml, markdown]
+        files: \.(yml|yaml|md)$
+        exclude: ^src/dbt/(target|dbt_packages|logs)/
+
+  # SQL formatting for dbt
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.0.3
+    hooks:
+      - id: sqlfluff-lint
+        args: ["--dialect", "postgres", "--exclude-rules", "L034,L036"]
+        files: ^src/dbt/models/.*\.sql$
+        additional_dependencies: ['dbt-postgres==1.7.17', 'sqlfluff-templater-dbt==3.0.3']
+      - id: sqlfluff-fix
+        args: ["--dialect", "postgres", "--exclude-rules", "L034,L036"]
+        files: ^src/dbt/models/.*\.sql$
+        additional_dependencies: ['dbt-postgres==1.7.17', 'sqlfluff-templater-dbt==3.0.3']
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^src/dbt/(target|dbt_packages)/
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Python type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.9.0
+    hooks:
+      - id: mypy
+        args: ["--ignore-missing-imports", "--no-strict-optional"]
+        files: ^src/app/.*\.py$
+        additional_dependencies: ['types-requests', 'types-PyYAML']
