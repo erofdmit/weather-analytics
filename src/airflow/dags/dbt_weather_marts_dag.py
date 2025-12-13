@@ -13,6 +13,24 @@ default_args = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
 }
+# упрощаем создание bash команды для dbt
+def dbt(cmd: str) -> str:
+    return f"""
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:$PATH"
+
+echo "=== DBT_DIR content ==="
+ls -la {DBT_DIR}
+ls -la {DBT_DIR}/dbt_project.yml
+ls -la {DBT_DIR}/profiles.yml
+
+echo "=== dbt version ==="
+dbt --version 2>&1
+
+echo "=== Running dbt: {cmd} ==="
+dbt {cmd} --project-dir {DBT_DIR} --profiles-dir {DBT_DIR} --log-level debug 2>&1
+""".strip()
 
 with DAG(
     dag_id="dbt_weather_marts",
@@ -23,8 +41,7 @@ with DAG(
     max_active_runs=1,
     tags=["dbt", "marts", "weather"],
 ) as dag:
-
-    # ожидаем данные в двх
+    # ожидаем dwh
     wait_for_raw = ExternalTaskSensor(
         task_id="wait_for_connector_mongo_postgres",
         external_dag_id="connector__mongo_postgres",
@@ -36,48 +53,37 @@ with DAG(
         poke_interval=60,
     )
 
+    common_env = {
+        "DBT_PROJECT_DIR": DBT_DIR,
+        "DBT_PROFILES_DIR": DBT_DIR,
+    }
+
     dbt_deps = BashOperator(
         task_id="dbt_deps",
-        cwd=DBT_DIR,
-        bash_command="dbt deps --project-dir . --profiles-dir .",
+        bash_command=dbt("deps"),
         append_env=True,
-        env={
-            "DBT_PROJECT_DIR": DBT_DIR,
-            "DBT_PROFILES_DIR": DBT_DIR,
-        },
+        env=common_env,
     )
 
     dbt_seed = BashOperator(
         task_id="dbt_seed_cities",
-        cwd=DBT_DIR,
-        bash_command="dbt seed --select cities --project-dir . --profiles-dir .",
+        bash_command=dbt("seed --select cities"),
         append_env=True,
-        env={
-            "DBT_PROJECT_DIR": DBT_DIR,
-            "DBT_PROFILES_DIR": DBT_DIR,
-        },
+        env=common_env,
     )
 
     dbt_run = BashOperator(
         task_id="dbt_run_incremental",
-        cwd=DBT_DIR,
-        bash_command="dbt run --select tag:stg tag:ods tag:dm --project-dir . --profiles-dir .",
+        bash_command=dbt("run --select tag:stg tag:ods tag:dm"),
         append_env=True,
-        env={
-            "DBT_PROJECT_DIR": DBT_DIR,
-            "DBT_PROFILES_DIR": DBT_DIR,
-        },
+        env=common_env,
     )
 
     dbt_test = BashOperator(
         task_id="dbt_test",
-        cwd=DBT_DIR,
-        bash_command="dbt test --select tag:stg tag:ods tag:dm --project-dir . --profiles-dir .",
+        bash_command=dbt("test --select tag:stg tag:ods tag:dm"),
         append_env=True,
-        env={
-            "DBT_PROJECT_DIR": DBT_DIR,
-            "DBT_PROFILES_DIR": DBT_DIR,
-        },
+        env=common_env,
     )
 
     wait_for_raw >> dbt_deps >> dbt_seed >> dbt_run >> dbt_test

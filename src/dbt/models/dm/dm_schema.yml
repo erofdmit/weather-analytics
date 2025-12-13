@@ -4,19 +4,19 @@ models:
   - name: dm_forecast_accuracy_by_interval
     description: >
       DM витрина для дашборда "Provider Performance Comparison".
-      Показывает метрики точности прогнозов (MAE, RMSE, accuracy%) 
+      Показывает метрики точности прогнозов (MAE, RMSE, accuracy%)
       для каждого провайдера на разных временных горизонтах.
     config:
       tags: ['dm', 'analytics', 'forecast_accuracy']
-    tests:
-      # Elementary: проверка аномалий во всех колонках
+
+    data_tests:
       - elementary.all_columns_anomalies:
           timestamp_column: dbt_updated_at
           exclude_prefix: "dbt_"
-      # Elementary: проверка событий (обновлений таблицы)
       - elementary.event_freshness_anomalies:
           event_timestamp_column: dbt_updated_at
           update_timestamp_column: dbt_updated_at
+
     columns:
       - name: provider
         description: "Провайдер прогноза"
@@ -24,7 +24,7 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: hours_ahead_interval
         description: "Временной интервал прогноза (1, 3, 6, 12, 24, 48 часов)"
         data_tests:
@@ -35,7 +35,7 @@ models:
               values: [1, 3, 6, 12, 24, 48]
               config:
                 severity: error
-      
+
       - name: total_forecasts
         description: "Общее количество прогнозов"
         data_tests:
@@ -46,7 +46,7 @@ models:
               expression: "> 0"
               config:
                 severity: error
-      
+
       - name: temperature_mae
         description: "Mean Absolute Error для температуры (°C)"
         data_tests:
@@ -57,12 +57,12 @@ models:
               expression: ">= 0"
               config:
                 severity: warn
-      
+
       - name: accuracy_within_2deg_pct
         description: "Процент прогнозов с точностью ±2°C"
         data_tests:
           - dbt_utils.expression_is_true:
-              expression: ">= 0 and <= 100"
+              expression: "between 0 and 100"
               config:
                 severity: warn
 
@@ -83,7 +83,7 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: overall_rank
         description: "Общий рейтинг провайдера (1 = лучший)"
         data_tests:
@@ -93,7 +93,7 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: avg_temperature_mae
         description: "Средний MAE температуры по всем интервалам"
         data_tests:
@@ -104,7 +104,7 @@ models:
               expression: ">= 0"
               config:
                 severity: warn
-      
+
       - name: total_forecasts_all_intervals
         description: "Общее количество прогнозов по всем интервалам"
         data_tests:
@@ -132,14 +132,14 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: country
         description: "Страна"
         data_tests:
           - not_null:
               config:
                 severity: error
-      
+
       - name: days_tracked
         description: "Количество дней наблюдений"
         data_tests:
@@ -150,7 +150,7 @@ models:
               expression: "> 0"
               config:
                 severity: error
-      
+
       - name: providers_count
         description: "Количество провайдеров для этого города"
         data_tests:

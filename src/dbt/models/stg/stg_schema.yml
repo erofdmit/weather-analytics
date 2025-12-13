@@ -15,21 +15,21 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: city
         description: "Название города"
         data_tests:
           - not_null:
               config:
                 severity: error
-      
+
       - name: country
         description: "Страна"
         data_tests:
           - not_null:
               config:
                 severity: warn
-      
+
       - name: provider
         description: "Провайдер погодных данных"
         data_tests:
@@ -40,14 +40,14 @@ models:
               values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit', 'weatherstack']
               config:
                 severity: error
-      
+
       - name: observation_time
         description: "Время наблюдения погоды"
         data_tests:
           - not_null:
               config:
                 severity: error
-      
+
       - name: temperature_celsius
         description: "Температура в градусах Цельсия"
         data_tests:
@@ -55,17 +55,18 @@ models:
               config:
                 severity: error
           - dbt_utils.expression_is_true:
-              expression: "> -100 and < 60"
+              expression: "between -100 and 60"
               config:
                 severity: warn
-      
+
       - name: humidity_percent
         description: "Влажность в процентах"
         data_tests:
           - dbt_utils.expression_is_true:
-              expression: ">= 0 and <= 100"
+              expression: "between 0 and 100"
               config:
                 severity: warn
+                where: "humidity_percent is not null"
 
   - name: stg_weather_forecast
     description: >
@@ -81,14 +82,14 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: city
         description: "Название города"
         data_tests:
           - not_null:
               config:
                 severity: error
-      
+
       - name: provider
         description: "Провайдер прогноза погоды"
         data_tests:
@@ -99,14 +100,14 @@ models:
               values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit']
               config:
                 severity: error
-      
+
       - name: forecast_timestamp
         description: "Временная метка прогноза (на какое время прогноз)"
         data_tests:
           - not_null:
               config:
                 severity: error
-      
+
       - name: hours_ahead
         description: "На сколько часов вперед сделан прогноз"
         data_tests:
@@ -114,10 +115,10 @@ models:
               config:
                 severity: error
           - dbt_utils.expression_is_true:
-              expression: ">= 0 and <= 200"
+              expression: "between 0 and 200"
               config:
                 severity: warn
-      
+
       - name: temperature_celsius
         description: "Прогнозируемая температура"
         data_tests:
@@ -125,6 +126,6 @@ models:
               config:
                 severity: error
           - dbt_utils.expression_is_true:
-              expression: "> -100 and < 60"
+              expression: "between -100 and 60"
               config:
                 severity: warn

@@ -8,19 +8,27 @@ models:
       Инкрементальная загрузка с стратегией delete+insert.
     config:
       tags: ['ods', 'weather', 'observations']
-    tests:
+
+    data_tests:
       # Elementary: проверка свежести данных
       - elementary.freshness_anomalies:
           timestamp_column: observation_time
           time_bucket:
             period: hour
             count: 1
+
       # Elementary: проверка объема данных
       - elementary.volume_anomalies:
           timestamp_column: observation_time
           time_bucket:
             period: day
             count: 1
+
+      - elementary.dimension_anomalies:
+          dimensions:
+            - provider
+          timestamp_column: observation_time
+
     columns:
       - name: observation_id
         description: "Суррогатный ключ (city + provider + observation_time)"
@@ -31,7 +39,7 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: city
         description: "Название города"
         data_tests:
@@ -43,7 +51,7 @@ models:
               field: city
               config:
                 severity: warn
-      
+
       - name: provider
         description: "Провайдер погодных данных"
         data_tests:
@@ -54,19 +62,14 @@ models:
               values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit', 'weatherstack']
               config:
                 severity: error
-          # Elementary: аномалии в распределении провайдеров
-          - elementary.dimension_anomalies:
-              dimensions:
-                - provider
-              timestamp_column: observation_time
-      
+
       - name: observation_time
         description: "Время наблюдения"
         data_tests:
           - not_null:
               config:
                 severity: error
-      
+
       - name: temperature_celsius
         description: "Температура в °C"
         data_tests:
@@ -81,7 +84,7 @@ models:
                 - min
                 - max
               timestamp_column: observation_time
-      
+
       - name: wind_direction_cardinal
         description: "Направление ветра (стороны света)"
         data_tests:
@@ -107,14 +110,14 @@ models:
           - not_null:
               config:
                 severity: error
-      
+
       - name: city
         description: "Название города"
         data_tests:
           - not_null:
               config:
                 severity: error
-      
+
       - name: provider
         description: "Провайдер прогноза"
         data_tests:
@@ -125,7 +128,7 @@ models:
               values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit']
               config:
                 severity: error
-      
+
       - name: hours_ahead_interval
         description: "Фиксированный временной интервал прогноза"
         data_tests:
@@ -136,7 +139,7 @@ models:
               values: [1, 3, 6, 12, 24, 48]
               config:
                 severity: error
-      
+
       - name: temperature_celsius
         description: "Прогнозируемая температура в °C"
         data_tests:

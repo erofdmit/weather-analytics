@@ -9,12 +9,7 @@
 
 /*
     ODS модель для прогнозов погоды от разных провайдеров.
-    Инкрементальная загрузка с стратегией merge для обновления прогнозов.
-    
-    Фильтрует только прогнозы на фиксированные интервалы: 1h, 3h, 6h, 12h, 24h, 48h
-    
-    Источник: stg_weather_forecast
-    Цель: Нормализованные прогнозы для сравнения точности провайдеров
+    Инкрементальная загрузка с merge.
 */
 
 with source_data as (
@@ -39,21 +34,21 @@ with source_data as (
         wind_direction_degrees,
         weather_condition,
         precipitation_probability,
-        forecast_created_at
+        forecast_created_at,
+        coalesce(forecast_created_at, forecast_timestamp) as source_changed_at
     from {{ ref('stg_weather_forecast') }}
-    
-    where hours_ahead >= 0  -- Только валидные прогнозы
-      and hours_ahead <= 48  -- Ограничиваем 48 часами
-    
+    where 1 = 1
+      and hours_ahead >= 0
+      and hours_ahead <= 48
+
     {% if is_incremental() %}
-        and forecast_timestamp > (
-            select coalesce(max(forecast_timestamp), '1900-01-01'::timestamp)
-            from {{ this }}
-        )
+      and coalesce(forecast_created_at, forecast_timestamp) >= (
+          select coalesce(max(source_changed_at), '1900-01-01'::timestamp)
+          from {{ this }}
+      )
     {% endif %}
 ),
 
--- Определяем ближайший фиксированный интервал
 with_intervals as (
     select
         *,
@@ -67,6 +62,21 @@ with_intervals as (
             else null
         end as hours_ahead_interval
     from source_data
+),
+
+deduped as (
+    select *
+    from (
+        select
+            *,
+            row_number() over (
+                partition by city, provider, forecast_timestamp, hours_ahead_interval
+                order by source_changed_at desc, forecast_created_at desc nulls last
+            ) as rn
+        from with_intervals
+        where hours_ahead_interval is not null
+    ) t
+    where rn = 1
 )
 
 select
@@ -79,12 +89,12 @@ select
     forecast_timestamp,
     hours_ahead,
     hours_ahead_interval,
-    
+
     -- Температурные показатели
     temperature_celsius,
     feels_like_celsius,
     round((temperature_celsius * 9.0 / 5.0 + 32)::numeric, 1) as temperature_fahrenheit,
-    
+
     -- Метеорологические параметры
     humidity_percent,
     wind_speed_ms,
@@ -95,7 +105,7 @@ select
     visibility_km,
     uv_index,
     wind_direction_degrees,
-    
+
     -- Направление ветра (стороны света)
     case
         when wind_direction_degrees between 0 and 22.5 then 'N'
@@ -109,13 +119,13 @@ select
         when wind_direction_degrees between 337.5 and 360 then 'N'
         else 'Unknown'
     end as wind_direction_cardinal,
-    
+
     weather_condition,
     precipitation_probability,
-    
+
     -- Метаданные
     forecast_created_at,
+    source_changed_at,
     current_timestamp as processed_dttm
 
-from with_intervals
-where hours_ahead_interval is not null  -- Только фиксированные интервалы
+from deduped
