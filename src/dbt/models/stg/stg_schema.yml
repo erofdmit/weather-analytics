@@ -4,15 +4,43 @@ models:
   - name: stg_weather_current
     description: >
       Staging модель для текущей погоды от разных провайдеров.
-      Разворачивает samples из JSONB в отдельные строки (один провайдер = одна строка).
       Извлекает данные из raw.weather_current и нормализует их для дальнейшей обработки.
     config:
       tags: ['stg', 'weather', 'current']
     columns:
-      - name: weather_id
-        description: "MongoDB ObjectId в виде строки"
+      - name: id
+        description: "Первичный ключ из raw таблицы"
         data_tests:
           - not_null:
+              config:
+                severity: error
+
+      - name: weather_id
+        description: "MongoDB ObjectId"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: latitude
+        description: "Широта локации"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "between -90 and 90"
+              config:
+                severity: error
+
+      - name: longitude
+        description: "Долгота локации"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "between -180 and 180"
               config:
                 severity: error
 
@@ -20,6 +48,13 @@ models:
         description: "Название города"
         data_tests:
           - not_null:
+              config:
+                severity: error
+          - accepted_values:
+              values: ['Moscow', 'Saint Petersburg', 'Novosibirsk', 'Yekaterinburg', 
+                       'Kazan', 'Vladivostok', 'Murmansk', 'Yuzhno-Sakhalinsk',
+                       'London', 'Paris', 'Berlin', 'Madrid', 'Rome',
+                       'New York', 'Los Angeles', 'Chicago', 'Miami', 'Toronto']
               config:
                 severity: error
 
@@ -42,7 +77,7 @@ models:
                 severity: error
 
       - name: observation_time
-        description: "Время наблюдения погоды"
+        description: "Время наблюдения погоды (created_at из raw, округленный до часа)"
         data_tests:
           - not_null:
               config:
@@ -68,18 +103,179 @@ models:
                 severity: warn
                 where: "humidity_percent is not null"
 
+      - name: wind_speed_ms
+        description: "Скорость ветра в м/с"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "wind_speed_ms is not null"
+
+      - name: wind_speed_kph
+        description: "Скорость ветра в км/ч"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "wind_speed_kph is not null"
+
+      - name: pressure_hpa
+        description: "Атмосферное давление в гПа"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 800 and 1100"
+              config:
+                severity: warn
+                where: "pressure_hpa is not null"
+
+      - name: precipitation_mm
+        description: "Количество осадков в мм"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "precipitation_mm is not null"
+
+      - name: cloud_cover_percent
+        description: "Облачность в процентах"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 100"
+              config:
+                severity: warn
+                where: "cloud_cover_percent is not null"
+
+      - name: visibility_km
+        description: "Видимость в километрах"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "visibility_km is not null"
+
+      - name: uv_index
+        description: "УФ-индекс"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "uv_index is not null"
+
+      - name: feels_like_celsius
+        description: "Ощущаемая температура в °C"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: "between -100 and 60"
+              config:
+                severity: warn
+                where: "feels_like_celsius is not null"
+
+      - name: wind_direction_degrees
+        description: "Направление ветра в градусах (0-360)"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 360"
+              config:
+                severity: warn
+                where: "wind_direction_degrees is not null"
+
+      - name: weather_condition
+        description: "Описание погодных условий"
+
+      - name: status_code
+        description: "HTTP статус код ответа API"
+        data_tests:
+          - accepted_values:
+              values: [200]
+              config:
+                severity: error
+
+      - name: created_at
+        description: "Дата создания записи в MongoDB"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: updated_at
+        description: "Дата последнего обновления в MongoDB"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: valid_from_dttm
+        description: "Дата начала действия версии (SCD Type 2)"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: valid_to_dttm
+        description: "Дата окончания действия версии (5999-01-01 для активных)"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: avg_temperature_c
+        description: "Средняя температура по всем провайдерам (агрегированное значение)"
+
+      - name: avg_humidity
+        description: "Средняя влажность по всем провайдерам (агрегированное значение)"
+
+      - name: source_updated_at
+        description: "Метка времени для инкрементальной загрузки"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
   - name: stg_weather_forecast
     description: >
       Staging модель для прогнозов погоды от разных провайдеров.
-      Разворачивает forecasts по провайдерам и points по часам.
       Извлекает данные из raw.weather_forecast и нормализует их.
     config:
       tags: ['stg', 'weather', 'forecast']
     columns:
+      - name: id
+        description: "Первичный ключ из raw таблицы"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
       - name: forecast_id
         description: "ID прогноза из MongoDB"
         data_tests:
           - not_null:
+              config:
+                severity: error
+
+      - name: latitude
+        description: "Широта локации"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "between -90 and 90"
+              config:
+                severity: error
+
+      - name: longitude
+        description: "Долгота локации"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "between -180 and 180"
               config:
                 severity: error
 
@@ -89,6 +285,20 @@ models:
           - not_null:
               config:
                 severity: error
+          - accepted_values:
+              values: ['Moscow', 'Saint Petersburg', 'Novosibirsk', 'Yekaterinburg', 
+                       'Kazan', 'Vladivostok', 'Murmansk', 'Yuzhno-Sakhalinsk',
+                       'London', 'Paris', 'Berlin', 'Madrid', 'Rome',
+                       'New York', 'Los Angeles', 'Chicago', 'Miami', 'Toronto']
+              config:
+                severity: error
+
+      - name: country
+        description: "Страна"
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
 
       - name: provider
         description: "Провайдер прогноза погоды"
@@ -109,18 +319,18 @@ models:
                 severity: error
 
       - name: hours_ahead
-        description: "На сколько часов вперед сделан прогноз"
+        description: "Горизонт прогноза в часах (из raw.hours)"
         data_tests:
           - not_null:
               config:
                 severity: error
-          - dbt_utils.expression_is_true:
-              expression: "between 0 and 200"
+          - accepted_values:
+              values: [1, 5, 10, 24, 48, 72, 96, 120, 144, 168]
               config:
-                severity: warn
+                severity: error
 
       - name: temperature_celsius
-        description: "Прогнозируемая температура"
+        description: "Прогнозируемая температура в °C"
         data_tests:
           - not_null:
               config:
@@ -129,3 +339,57 @@ models:
               expression: "between -100 and 60"
               config:
                 severity: warn
+
+      - name: humidity_percent
+        description: "Прогнозируемая влажность в процентах"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 100"
+              config:
+                severity: warn
+                where: "humidity_percent is not null"
+
+      - name: wind_speed_kph
+        description: "Прогнозируемая скорость ветра в км/ч"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "wind_speed_kph is not null"
+
+      - name: status_code
+        description: "HTTP статус код ответа API"
+        data_tests:
+          - accepted_values:
+              values: [200]
+              config:
+                severity: error
+
+      - name: forecast_created_at
+        description: "Дата создания прогноза в MongoDB"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: updated_at
+        description: "Дата последнего обновления в MongoDB"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: valid_from_dttm
+        description: "Дата начала действия версии (SCD Type 2)"
+        data_tests:
+          - not_null:
+              config:
+                severity: error
+
+      - name: valid_to_dttm
+        description: "Дата окончания действия версии (5999-01-01 для активных)"
+        data_tests:
+          - not_null:
+              config:
+                severity: error

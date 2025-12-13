@@ -44,13 +44,9 @@ with city_stats as (
         round(min(humidity_percent)::numeric, 1) as min_humidity,
         round(max(humidity_percent)::numeric, 1) as max_humidity,
         
-        -- Историческая статистика ветра
-        round(avg(wind_speed_ms)::numeric, 1) as avg_wind_speed,
-        round(max(wind_speed_ms)::numeric, 1) as max_wind_speed,
-        
-        -- Историческая статистика осадков
-        round(avg(precipitation_mm)::numeric, 2) as avg_precipitation,
-        round(sum(precipitation_mm)::numeric, 2) as total_precipitation
+        -- Историческая статистика ветра (в км/ч)
+        round(avg(wind_speed_kph)::numeric, 1) as avg_wind_speed_kph,
+        round(max(wind_speed_kph)::numeric, 1) as max_wind_speed_kph
         
     from {{ ref('ods_weather_observations') }}
     group by city, country
@@ -83,11 +79,8 @@ select
     min_humidity,
     max_humidity,
     
-    avg_wind_speed,
-    max_wind_speed,
-    
-    avg_precipitation,
-    total_precipitation,
+    avg_wind_speed_kph,
+    max_wind_speed_kph,
     
     -- Метаданные
     current_timestamp as dbt_updated_at

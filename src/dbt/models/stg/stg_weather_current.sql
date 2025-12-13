@@ -65,8 +65,8 @@ parsed_samples as (
         -- Провайдер
         (sample->>'provider')::text as provider,
         
-        -- Время наблюдения
-        (sample->>'observation_time')::timestamp as observation_time,
+        -- Время наблюдения (используем created_at из raw, округленный до часа)
+        date_trunc('hour', created_at) as observation_time,
         
         -- Погодные параметры
         (sample->>'temperature_c')::float as temperature_celsius,

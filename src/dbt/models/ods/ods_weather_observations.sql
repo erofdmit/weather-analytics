@@ -69,37 +69,10 @@ select
     provider,
     observation_time,
 
-    -- Температурные показатели
+    -- Основные параметры для сравнения с прогнозами
     temperature_celsius,
-    feels_like_celsius,
-    round((temperature_celsius * 9.0 / 5.0 + 32)::numeric, 1) as temperature_fahrenheit,
-
-    -- Метеорологические параметры
     humidity_percent,
-    wind_speed_ms,
     wind_speed_kph,
-    pressure_hpa,
-    precipitation_mm,
-    cloud_cover_percent,
-    visibility_km,
-    uv_index,
-    wind_direction_degrees,
-
-    -- Направление ветра (стороны света)
-    case
-        when wind_direction_degrees between 0 and 22.5 then 'N'
-        when wind_direction_degrees between 22.5 and 67.5 then 'NE'
-        when wind_direction_degrees between 67.5 and 112.5 then 'E'
-        when wind_direction_degrees between 112.5 and 157.5 then 'SE'
-        when wind_direction_degrees between 157.5 and 202.5 then 'S'
-        when wind_direction_degrees between 202.5 and 247.5 then 'SW'
-        when wind_direction_degrees between 247.5 and 292.5 then 'W'
-        when wind_direction_degrees between 292.5 and 337.5 then 'NW'
-        when wind_direction_degrees between 337.5 and 360 then 'N'
-        else 'Unknown'
-    end as wind_direction_cardinal,
-
-    weather_condition,
 
     -- Метаданные
     created_at as source_created_at,

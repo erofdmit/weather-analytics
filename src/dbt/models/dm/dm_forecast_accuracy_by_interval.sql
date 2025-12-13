@@ -25,7 +25,7 @@ with actual_observations as (
         observation_time,
         avg(temperature_celsius) as actual_temperature,
         avg(humidity_percent) as actual_humidity,
-        avg(wind_speed_ms) as actual_wind_speed,
+        avg(wind_speed_kph) as actual_wind_speed,
         count(distinct provider) as providers_count
     from {{ ref('ods_weather_observations') }}
     group by city, observation_time
@@ -40,7 +40,7 @@ forecasts as (
         hours_ahead_interval,
         temperature_celsius as forecast_temperature,
         humidity_percent as forecast_humidity,
-        wind_speed_ms as forecast_wind_speed
+        wind_speed_kph as forecast_wind_speed
     from {{ ref('ods_weather_forecasts') }}
 ),
 

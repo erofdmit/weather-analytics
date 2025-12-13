@@ -1,6 +1,123 @@
 version: 2
 
 models:
+  - name: dm_forecast_accuracy_detailed
+    description: >
+      Детальная витрина для сравнения каждого прогноза с реальными наблюдениями.
+      Содержит все прогнозы с вычисленными метриками ошибок (MAE, RMSE, MAPE).
+      Используется как источник для агрегированных витрин.
+    config:
+      tags: ['dm', 'forecast', 'accuracy', 'detailed']
+    columns:
+      - name: accuracy_id
+        description: "Уникальный идентификатор записи"
+        data_tests:
+          - unique
+          - not_null
+      
+      - name: city
+        description: "Город"
+        data_tests:
+          - not_null
+      
+      - name: provider
+        description: "Провайдер прогноза"
+        data_tests:
+          - not_null
+      
+      - name: hours_ahead_interval
+        description: "Интервал прогноза (1, 3, 6, 12, 24, 48 часов)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [1, 3, 6, 12, 24, 48]
+      
+      - name: forecast_temperature
+        description: "Прогнозная температура (°C)"
+      
+      - name: actual_temperature
+        description: "Реальная температура (°C)"
+        data_tests:
+          - not_null
+      
+      - name: temperature_mae
+        description: "Абсолютная ошибка температуры"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: dm_forecast_accuracy_summary
+    description: >
+      Агрегированная витрина точности прогнозов по дням и интервалам.
+      Показывает средние метрики для каждого провайдера, города и интервала за день.
+    config:
+      tags: ['dm', 'forecast', 'accuracy', 'summary']
+    columns:
+      - name: summary_id
+        description: "Уникальный идентификатор записи"
+        data_tests:
+          - unique
+          - not_null
+      
+      - name: provider
+        description: "Провайдер прогноза"
+        data_tests:
+          - not_null
+      
+      - name: hours_ahead_interval
+        description: "Интервал прогноза"
+        data_tests:
+          - not_null
+      
+      - name: forecast_count
+        description: "Количество прогнозов за день"
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      
+      - name: overall_accuracy_score
+        description: "Общий балл точности (0-100)"
+        data_tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 100"
+
+  - name: dm_provider_accuracy_ranking
+    description: >
+      Рейтинг провайдеров по точности прогнозов для разных интервалов.
+      Показывает, какой провайдер наиболее точен для каждого горизонта прогнозирования.
+    config:
+      tags: ['dm', 'forecast', 'ranking']
+    columns:
+      - name: ranking_id
+        description: "Уникальный идентификатор записи"
+        data_tests:
+          - unique
+          - not_null
+      
+      - name: provider
+        description: "Провайдер прогноза"
+        data_tests:
+          - not_null
+      
+      - name: hours_ahead_interval
+        description: "Интервал прогноза"
+        data_tests:
+          - not_null
+      
+      - name: overall_rank
+        description: "Общий ранг провайдера для данного интервала (1 = лучший)"
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      
+      - name: overall_accuracy_score
+        description: "Общий балл точности"
+        data_tests:
+          - not_null
+
+models:
   - name: dm_forecast_accuracy_by_interval
     description: >
       DM витрина для дашборда "Provider Performance Comparison".
