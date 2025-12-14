@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # PostgreSQL для метаданных Redash (queries, dashboards, users)
+  redash-postgres:
+    image: postgres:14-alpine
+    container_name: redash_postgres
+    environment:
+      POSTGRES_USER: ${REDASH_POSTGRES_USER:-redash}
+      POSTGRES_PASSWORD: ${REDASH_POSTGRES_PASSWORD:-redash}
+      POSTGRES_DB: ${REDASH_POSTGRES_DB:-redash}
+    volumes:
+      - redash_postgres_data:/var/lib/postgresql/data
+    networks:
+      - redash_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${REDASH_POSTGRES_USER:-redash}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis для кэширования и очереди задач
+  redash-redis:
+    image: redis:7-alpine
+    container_name: redash_redis
+    networks:
+      - redash_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Redash Web Server (основной интерфейс)
+  redash-server:
+    image: redash/redash:10.1.0.b50633
+    container_name: redash_server
+    depends_on:
+      redash-postgres:
+        condition: service_healthy
+      redash-redis:
+        condition: service_healthy
+    ports:
+      - "0.0.0.0:${REDASH_PORT:-5000}:5000"
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: 0
+      REDASH_LOG_LEVEL: "INFO"
+      REDASH_REDIS_URL: "redis://redash-redis:6379/0"
+      REDASH_DATABASE_URL: "postgresql://${REDASH_POSTGRES_USER:-redash}:${REDASH_POSTGRES_PASSWORD:-redash}@redash-postgres/${REDASH_POSTGRES_DB:-redash}"
+      REDASH_COOKIE_SECRET: ${REDASH_COOKIE_SECRET}
+      REDASH_SECRET_KEY: ${REDASH_SECRET_KEY}
+      REDASH_WEB_WORKERS: 4
+    networks:
+      - redash_network
+      - weather_dwh_network
+    restart: unless-stopped
+    command: server
+
+  # Redash Scheduler (планировщик обновления queries)
+  redash-scheduler:
+    image: redash/redash:10.1.0.b50633
+    container_name: redash_scheduler
+    depends_on:
+      redash-server:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: 0
+      REDASH_LOG_LEVEL: "INFO"
+      REDASH_REDIS_URL: "redis://redash-redis:6379/0"
+      REDASH_DATABASE_URL: "postgresql://${REDASH_POSTGRES_USER:-redash}:${REDASH_POSTGRES_PASSWORD:-redash}@redash-postgres/${REDASH_POSTGRES_DB:-redash}"
+      QUEUES: "celery"
+      WORKERS_COUNT: 1
+    networks:
+      - redash_network
+      - weather_dwh_network
+    restart: unless-stopped
+    command: scheduler
+
+  # Redash Worker (выполнение фоновых задач и queries)
+  redash-worker:
+    image: redash/redash:10.1.0.b50633
+    container_name: redash_worker
+    depends_on:
+      redash-server:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: 0
+      REDASH_LOG_LEVEL: "INFO"
+      REDASH_REDIS_URL: "redis://redash-redis:6379/0"
+      REDASH_DATABASE_URL: "postgresql://${REDASH_POSTGRES_USER:-redash}:${REDASH_POSTGRES_PASSWORD:-redash}@redash-postgres/${REDASH_POSTGRES_DB:-redash}"
+      QUEUES: "queries,scheduled_queries,celery,schemas"
+      WORKERS_COUNT: 2
+    networks:
+      - redash_network
+      - weather_dwh_network
+    restart: unless-stopped
+    command: worker
+
+volumes:
+  redash_postgres_data:
+    name: redash_postgres_data
+
+networks:
+  redash_network:
+    name: redash_network
+    driver: bridge
+
+  # Подключение к существующей сети DWH для доступа к weather_postgres_db
+  weather_dwh_network:
+    external: true
+    name: dwh_weather_dwh_network
