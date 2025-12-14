@@ -63,10 +63,41 @@ jobs:
       - name: Run tests (pytest)
         run: uv run --directory src/app pytest ../../tests
 
+  dbt:
+    name: DBT Dependencies
+    runs-on: ubuntu-latest
+    needs: [lint]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt and dependencies
+        working-directory: src/dbt
+        run: |
+          pip install -r requirements.txt
+          dbt deps --project-dir . --profiles-dir .
+
+      - name: Verify dbt packages
+        working-directory: src/dbt
+        run: |
+          if [ -d "dbt_packages" ]; then
+            echo "✅ dbt packages installed successfully"
+            ls -la dbt_packages/
+          else
+            echo "⚠️ dbt_packages directory not found"
+            exit 1
+          fi
+
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, dbt]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:

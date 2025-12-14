@@ -4,10 +4,38 @@
 {{ config(
     materialized='incremental',
     incremental_strategy='delete+insert',
-    unique_key=['forecast_id', 'provider', 'forecast_timestamp'],
+    unique_key=['forecast_id', 'provider', 'forecast_timestamp', 'hours_ahead'],
     tags=['stg', 'weather', 'forecast']
 ) }}
 
+{% if is_incremental() %}
+-- Получаем максимальную дату для инкрементальной загрузки
+with max_created_at as (
+    select coalesce(max(forecast_created_at), '1900-01-01'::timestamp) as max_created_at
+    from {{ this }}
+),
+
+source_data as (
+    select
+        s.id,
+        s.forecast_id,
+        s.latitude,
+        s.longitude,
+        s.hours,
+        s.request,
+        s.response,
+        s.status_code,
+        s.created_at,
+        s.updated_at,
+        s.valid_from_dttm,
+        s.valid_to_dttm
+    from {{ source('raw', 'weather_forecast') }} s
+    cross join max_created_at m
+    where s.valid_to_dttm = '5999-01-01'::timestamp  -- Только активные записи
+      and s.status_code = 200  -- Только успешные запросы
+      and s.created_at > m.max_created_at  -- Инкрементальная загрузка
+),
+{% else %}
 with source_data as (
     select
         id,
@@ -25,12 +53,8 @@ with source_data as (
     from {{ source('raw', 'weather_forecast') }}
     where valid_to_dttm = '5999-01-01'::timestamp  -- Только активные записи
       and status_code = 200  -- Только успешные запросы
-    
-    {% if is_incremental() %}
-        -- Инкрементальная загрузка: только новые данные
-        and created_at > (select max(forecast_created_at) from {{ this }})
-    {% endif %}
 ),
+{% endif %}
 
 -- Разворачиваем массив forecasts (каждый провайдер - отдельная группа прогнозов)
 forecasts_by_provider as (
@@ -39,7 +63,7 @@ forecasts_by_provider as (
         forecast_id,
         latitude,
         longitude,
-        hours,
+        hours,  -- Пробрасываем hours для использования в hours_ahead
         status_code,
         created_at,
         updated_at,
@@ -60,7 +84,7 @@ forecast_points_expanded as (
         forecast_id,
         latitude,
         longitude,
-        hours,
+        hours,  -- Пробрасываем hours
         status_code,
         created_at,
         updated_at,
@@ -77,35 +101,26 @@ forecast_points_expanded as (
 ),
 
 -- Парсим данные из каждого point
+-- Оставляем только поля, которые нужны для сравнения точности прогнозов
 parsed_forecasts as (
     select
         id,
         forecast_id,
         latitude,
         longitude,
+        hours,  -- Пробрасываем hours (горизонт прогноза из запроса)
         provider,
         
         -- Временная метка прогноза
         (point->>'time')::timestamp as forecast_timestamp,
         
-        -- Погодные параметры
+        -- Время запуска прогноза (created_at из raw, округленный до часа)
+        date_trunc('hour', created_at) as forecast_run_hour,
+        
+        -- Основные погодные параметры для сравнения
         (point->>'temperature_c')::float as temperature_celsius,
         (point->>'humidity')::float as humidity_percent,
-        
-        -- Скорость ветра (конвертируем из км/ч в м/с)
-        ((point->>'wind_speed_kph')::float / 3.6) as wind_speed_ms,
         (point->>'wind_speed_kph')::float as wind_speed_kph,
-        
-        -- Дополнительные поля (если есть)
-        (point->>'pressure_mb')::float as pressure_hpa,
-        (point->>'precip_mm')::float as precipitation_mm,
-        (point->>'cloud_cover')::float as cloud_cover_percent,
-        (point->>'visibility_km')::float as visibility_km,
-        (point->>'uv_index')::float as uv_index,
-        (point->>'feels_like_c')::float as feels_like_celsius,
-        (point->>'wind_degree')::float as wind_direction_degrees,
-        (point->>'condition')::text as weather_condition,
-        (point->>'precip_probability')::float as precipitation_probability,
         
         -- Метаданные
         status_code,
@@ -126,25 +141,15 @@ select
     c.country,
     pf.provider,
     pf.forecast_timestamp,
+    pf.forecast_run_hour,
     
-    -- Вычисляем offset в часах от времени создания прогноза
-    -- Используем GREATEST чтобы избежать отрицательных значений
-    greatest(0, extract(epoch from (pf.forecast_timestamp - pf.created_at)) / 3600) as hours_ahead,
+    -- Используем hours из raw таблицы (горизонт прогноза из запроса)
+    pf.hours as hours_ahead,
     
-    -- Погодные параметры
+    -- Основные погодные параметры для сравнения
     pf.temperature_celsius,
     pf.humidity_percent,
-    pf.wind_speed_ms,
     pf.wind_speed_kph,
-    pf.pressure_hpa,
-    pf.precipitation_mm,
-    pf.cloud_cover_percent,
-    pf.visibility_km,
-    pf.uv_index,
-    pf.feels_like_celsius,
-    pf.wind_direction_degrees,
-    pf.weather_condition,
-    pf.precipitation_probability,
     
     -- Метаданные
     pf.status_code,

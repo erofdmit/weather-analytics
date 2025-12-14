@@ -36,12 +36,12 @@ services:
       DBT_PROJECT_DIR: /dbt
     volumes:
       - ../dbt:/dbt
+      - elementary_reports:/tmp/elementary_reports  # Shared volume для Elementary отчетов
     networks:
       - weather_dwh_network
     depends_on:
       postgres:
         condition: service_healthy
-    # Интерактивный режим - оставляем контейнер запущенным
     stdin_open: true
     tty: true
     command: tail -f /dev/null
@@ -50,6 +50,8 @@ volumes:
   postgres_data:
   dbt_packages:
   dbt_target:
+  elementary_reports:
+    name: dbt_elementary_reports
 
 networks:
   weather_dwh_network:

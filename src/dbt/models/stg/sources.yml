@@ -5,9 +5,21 @@ sources:
     description: "Сырые данные из MongoDB, загруженные через Airflow ETL"
     database: "{{ env_var('POSTGRES_DB', 'weather_dwh') }}"
     schema: raw
+    
+    # Freshness по умолчанию для всех таблиц
+    freshness:
+      warn_after: {count: 3, period: hour}
+      error_after: {count: 5, period: hour}
+    
     tables:
       - name: weather_current
         description: "Текущие данные о погоде из нескольких источников (агрегированные)"
+        loaded_at_field: created_at
+        
+        # DAG запускается каждый час, поэтому проверяем строже
+        freshness:
+          warn_after: {count: 2, period: hour}
+          error_after: {count: 5, period: hour}
         columns:
           - name: id
             description: "Первичный ключ"
@@ -61,6 +73,11 @@ sources:
 
       - name: weather_forecast
         description: "Прогнозы погоды на несколько часов вперед"
+        loaded_at_field: created_at
+        
+        freshness:
+          warn_after: {count: 2, period: hour}
+          error_after: {count: 5, period: hour}
         columns:
           - name: id
             description: "Первичный ключ"

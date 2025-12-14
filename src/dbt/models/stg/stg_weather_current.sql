@@ -4,7 +4,7 @@
 {{ config(
     materialized='incremental',
     incremental_strategy='delete+insert',
-    unique_key=['weather_id', 'provider', 'observation_time'],
+    unique_key=['weather_id', 'provider', 'observation_hour'],
     tags=['stg', 'weather', 'current']
 ) }}
 
@@ -27,7 +27,7 @@ with source_data as (
     
     {% if is_incremental() %}
         -- Инкрементальная загрузка: только новые данные
-        and updated_at > (select max(source_updated_at) from {{ this }})
+        and created_at > (select coalesce(max(created_at), '1900-01-01'::timestamp) from {{ this }})
     {% endif %}
 ),
 
@@ -45,11 +45,7 @@ samples_expanded as (
         valid_to_dttm,
         
         -- Извлекаем данные из каждого sample
-        jsonb_array_elements(response->'samples') as sample,
-        
-        -- Агрегированные значения (для справки)
-        (response->>'average_temperature_c')::float as avg_temperature_c,
-        (response->>'average_humidity')::float as avg_humidity
+        jsonb_array_elements(response->'samples') as sample
     from source_data
     where response->'samples' is not null
 ),
@@ -65,8 +61,8 @@ parsed_samples as (
         -- Провайдер
         (sample->>'provider')::text as provider,
         
-        -- Время наблюдения
-        (sample->>'observation_time')::timestamp as observation_time,
+        -- Время наблюдения (используем created_at из raw, округленный до часа)
+        date_trunc('hour', created_at) as observation_hour,
         
         -- Погодные параметры
         (sample->>'temperature_c')::float as temperature_celsius,
@@ -160,11 +156,7 @@ parsed_samples as (
         created_at,
         updated_at,
         valid_from_dttm,
-        valid_to_dttm,
-        
-        -- Агрегированные значения
-        avg_temperature_c,
-        avg_humidity
+        valid_to_dttm
         
     from samples_expanded
 )
@@ -177,7 +169,7 @@ select
     c.city,
     c.country,
     ps.provider,
-    ps.observation_time,
+    ps.observation_hour,
     ps.temperature_celsius,
     ps.humidity_percent,
     ps.wind_speed_ms,
@@ -194,10 +186,7 @@ select
     ps.created_at,
     ps.updated_at,
     ps.valid_from_dttm,
-    ps.valid_to_dttm,
-    ps.avg_temperature_c,
-    ps.avg_humidity,
-    ps.updated_at as source_updated_at  -- Для инкрементальной загрузки
+    ps.valid_to_dttm
 from parsed_samples ps
 left join {{ ref('cities') }} c
     on round(ps.latitude::numeric, 2) = round(c.latitude::numeric, 2)

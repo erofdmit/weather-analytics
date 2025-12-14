@@ -2,7 +2,7 @@
     config(
         materialized='incremental',
         incremental_strategy='delete+insert',
-        unique_key=['city', 'provider', 'observation_time'],
+        unique_key=['city', 'provider', 'observation_hour'],
         tags=['ods', 'weather', 'observations']
     )
 }}
@@ -19,10 +19,11 @@ with source_data as (
         latitude,
         longitude,
         provider,
-        observation_time,
+        observation_hour,
+        
+        -- Основные погодные параметры
         temperature_celsius,
         humidity_percent,
-        wind_speed_ms,
         wind_speed_kph,
         pressure_hpa,
         precipitation_mm,
@@ -32,14 +33,16 @@ with source_data as (
         feels_like_celsius,
         wind_direction_degrees,
         weather_condition,
+        
+        -- Метаданные
         created_at,
         updated_at,
-        coalesce(updated_at, created_at, observation_time) as source_changed_at
+        coalesce(updated_at, created_at, observation_hour) as source_changed_at
     from {{ ref('stg_weather_current') }}
     where 1 = 1
 
     {% if is_incremental() %}
-      and coalesce(updated_at, created_at, observation_time) >= (
+      and coalesce(updated_at, created_at, observation_hour) >= (
           select coalesce(max(source_changed_at), '1900-01-01'::timestamp)
           from {{ this }}
       )
@@ -52,7 +55,7 @@ deduped as (
         select
             *,
             row_number() over (
-                partition by city, provider, observation_time
+                partition by city, provider, observation_hour
                 order by source_changed_at desc, updated_at desc nulls last, created_at desc nulls last
             ) as rn
         from source_data
@@ -61,44 +64,32 @@ deduped as (
 )
 
 select
-    {{ dbt_utils.generate_surrogate_key(['city', 'provider', 'observation_time']) }} as observation_id,
+    {{ dbt_utils.generate_surrogate_key(['city', 'provider', 'observation_hour']) }} as observation_id,
     city,
     country,
     latitude,
     longitude,
     provider,
-    observation_time,
+    observation_hour,
+    
+    -- Вычисляемые поля для аналитики
+    extract(dow from observation_hour) as day_of_week,
+    extract(hour from observation_hour) as hour_of_day,
+    date_trunc('day', observation_hour) as observation_date,
 
-    -- Температурные показатели
+    -- Основные параметры для сравнения с прогнозами
     temperature_celsius,
-    feels_like_celsius,
-    round((temperature_celsius * 9.0 / 5.0 + 32)::numeric, 1) as temperature_fahrenheit,
-
-    -- Метеорологические параметры
     humidity_percent,
-    wind_speed_ms,
     wind_speed_kph,
+    
+    -- Дополнительные параметры
     pressure_hpa,
     precipitation_mm,
     cloud_cover_percent,
     visibility_km,
     uv_index,
+    feels_like_celsius,
     wind_direction_degrees,
-
-    -- Направление ветра (стороны света)
-    case
-        when wind_direction_degrees between 0 and 22.5 then 'N'
-        when wind_direction_degrees between 22.5 and 67.5 then 'NE'
-        when wind_direction_degrees between 67.5 and 112.5 then 'E'
-        when wind_direction_degrees between 112.5 and 157.5 then 'SE'
-        when wind_direction_degrees between 157.5 and 202.5 then 'S'
-        when wind_direction_degrees between 202.5 and 247.5 then 'SW'
-        when wind_direction_degrees between 247.5 and 292.5 then 'W'
-        when wind_direction_degrees between 292.5 and 337.5 then 'NW'
-        when wind_direction_degrees between 337.5 and 360 then 'N'
-        else 'Unknown'
-    end as wind_direction_cardinal,
-
     weather_condition,
 
     -- Метаданные
