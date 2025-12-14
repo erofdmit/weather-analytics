@@ -33,6 +33,7 @@ x-airflow-common: &airflow-common
     - ./plugins:/opt/airflow/plugins
     - ./requirements.txt:/docker-context-files/requirements.txt
     - ../dbt:/opt/airflow/dbt
+    - /var/run/docker.sock:/var/run/docker.sock  # Для выполнения docker exec
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     - postgres
@@ -108,8 +109,30 @@ services:
       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_WWW_USER_USERNAME}
       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_WWW_USER_PASSWORD}
 
+  # Nginx для Elementary отчетов
+  elementary-reports:
+    image: nginx:alpine
+    container_name: elementary-reports-server
+    ports:
+      - "8081:80"
+    volumes:
+      - elementary-reports-volume:/usr/share/nginx/html:ro
+      - ./nginx-elementary.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+    networks:
+      - default
+      - dwh_weather_dwh_network  # Для доступа к weather_dbt
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres-db-volume:
+  elementary-reports-volume:
+    external: true
+    name: dbt_elementary_reports
 
 networks:
   default:

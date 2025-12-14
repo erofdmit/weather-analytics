@@ -4,10 +4,38 @@
 {{ config(
     materialized='incremental',
     incremental_strategy='delete+insert',
-    unique_key=['forecast_id', 'provider', 'forecast_timestamp'],
+    unique_key=['forecast_id', 'provider', 'forecast_timestamp', 'hours_ahead'],
     tags=['stg', 'weather', 'forecast']
 ) }}
 
+{% if is_incremental() %}
+-- Получаем максимальную дату для инкрементальной загрузки
+with max_created_at as (
+    select coalesce(max(forecast_created_at), '1900-01-01'::timestamp) as max_created_at
+    from {{ this }}
+),
+
+source_data as (
+    select
+        s.id,
+        s.forecast_id,
+        s.latitude,
+        s.longitude,
+        s.hours,
+        s.request,
+        s.response,
+        s.status_code,
+        s.created_at,
+        s.updated_at,
+        s.valid_from_dttm,
+        s.valid_to_dttm
+    from {{ source('raw', 'weather_forecast') }} s
+    cross join max_created_at m
+    where s.valid_to_dttm = '5999-01-01'::timestamp  -- Только активные записи
+      and s.status_code = 200  -- Только успешные запросы
+      and s.created_at > m.max_created_at  -- Инкрементальная загрузка
+),
+{% else %}
 with source_data as (
     select
         id,
@@ -25,12 +53,8 @@ with source_data as (
     from {{ source('raw', 'weather_forecast') }}
     where valid_to_dttm = '5999-01-01'::timestamp  -- Только активные записи
       and status_code = 200  -- Только успешные запросы
-    
-    {% if is_incremental() %}
-        -- Инкрементальная загрузка: только новые данные
-        and created_at > (select max(forecast_created_at) from {{ this }})
-    {% endif %}
 ),
+{% endif %}
 
 -- Разворачиваем массив forecasts (каждый провайдер - отдельная группа прогнозов)
 forecasts_by_provider as (
@@ -84,11 +108,14 @@ parsed_forecasts as (
         forecast_id,
         latitude,
         longitude,
-        hours,  -- Пробрасываем hours
+        hours,  -- Пробрасываем hours (горизонт прогноза из запроса)
         provider,
         
         -- Временная метка прогноза
         (point->>'time')::timestamp as forecast_timestamp,
+        
+        -- Время запуска прогноза (created_at из raw, округленный до часа)
+        date_trunc('hour', created_at) as forecast_run_hour,
         
         -- Основные погодные параметры для сравнения
         (point->>'temperature_c')::float as temperature_celsius,
@@ -114,6 +141,7 @@ select
     c.country,
     pf.provider,
     pf.forecast_timestamp,
+    pf.forecast_run_hour,
     
     -- Используем hours из raw таблицы (горизонт прогноза из запроса)
     pf.hours as hours_ahead,

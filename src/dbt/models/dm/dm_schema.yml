@@ -1,280 +1,691 @@
 version: 2
 
 models:
-  - name: dm_forecast_accuracy_detailed
+  - name: dm_forecast_pivot
     description: >
-      Детальная витрина для сравнения каждого прогноза с реальными наблюдениями.
-      Содержит все прогнозы с вычисленными метриками ошибок (MAE, RMSE, MAPE).
-      Используется как источник для агрегированных витрин.
+      Витрина с развернутыми прогнозами по горизонтам.
+      
+      Структура:
+      - Одна строка = один прогноз от провайдера для города в определенный день
+      - Колонки с прогнозами на разные горизонты (1h, 5h, 10h, 24h, 48h, 72h, 96h, 120h, 144h, 168h)
+      - Реальные значения от этого провайдера
+      - Средние значения от других провайдеров (консенсус)
+      
+      Использование: Сравнение точности прогнозов на разных горизонтах, анализ консенсуса провайдеров
     config:
-      tags: ['dm', 'forecast', 'accuracy', 'detailed']
+      tags: ['dm', 'forecast', 'pivot', 'analytics']
+    
+    tests:
+      # Elementary: Проверка объема данных (ежедневно)
+      - elementary.volume_anomalies:
+          timestamp_column: forecast_run_date
+          time_bucket:
+            period: day
+            count: 1
+          config:
+            severity: warn
+      
+      # Elementary: Аномалии по провайдерам (ежедневно)
+      - elementary.dimension_anomalies:
+          dimensions:
+            - provider
+          timestamp_column: forecast_run_date
+          time_bucket:
+            period: day
+            count: 1
+          config:
+            severity: warn
+    
     columns:
-      - name: accuracy_id
-        description: "Уникальный идентификатор записи"
-        data_tests:
-          - unique
-          - not_null
+      - name: pivot_id
+        description: "Уникальный идентификатор записи (суррогатный ключ)"
+        tests:
+          # dbt-core: Проверка на NULL
+          - not_null:
+              config:
+                severity: error
+      
+      - name: provider
+        description: "Провайдер прогноза"
+        tests:
+          # dbt-core: Проверка на NULL
+          - not_null:
+              config:
+                severity: error
+          # dbt-core: Проверка допустимых значений провайдеров
+          - accepted_values:
+              values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit']
+              config:
+                severity: error
+          # dbt-core: Проверка связи с ODS
+          - relationships:
+              to: ref('ods_weather_forecasts')
+              field: provider
+              config:
+                severity: warn
       
       - name: city
         description: "Город"
-        data_tests:
-          - not_null
-      
-      - name: provider
-        description: "Провайдер прогноза"
-        data_tests:
-          - not_null
-      
-      - name: hours_ahead_interval
-        description: "Интервал прогноза (1, 3, 6, 12, 24, 48 часов)"
-        data_tests:
-          - not_null
+        tests:
+          # dbt-core: Проверка на NULL
+          - not_null:
+              config:
+                severity: error
+          # dbt-core: Проверка допустимых значений городов
           - accepted_values:
-              values: [1, 3, 6, 12, 24, 48]
+              values: ['Moscow', 'Saint Petersburg', 'Novosibirsk', 'Yekaterinburg', 
+                       'Kazan', 'Vladivostok', 'Murmansk', 'Yuzhno-Sakhalinsk',
+                       'London', 'Paris', 'Berlin', 'Madrid', 'Rome',
+                       'New York', 'Los Angeles', 'Chicago', 'Miami', 'Toronto']
+              config:
+                severity: error
+          # dbt-core: Проверка связи с ODS
+          - relationships:
+              to: ref('ods_weather_observations')
+              field: city
+              config:
+                severity: warn
       
-      - name: forecast_temperature
-        description: "Прогнозная температура (°C)"
+      - name: forecast_run_date
+        description: "Дата запуска прогноза"
+        tests:
+          - not_null:
+              config:
+                severity: error
       
-      - name: actual_temperature
-        description: "Реальная температура (°C)"
-        data_tests:
-          - not_null
+      # Прогнозы температуры по горизонтам
+      - name: temp_forecast_1h
+        description: "Прогноз температуры на 1 час вперед в градусах Цельсия (°C). Краткосрочный прогноз."
       
-      - name: temperature_mae
-        description: "Абсолютная ошибка температуры"
-        data_tests:
+      - name: temp_forecast_5h
+        description: "Прогноз температуры на 5 часов вперед в градусах Цельсия (°C). Краткосрочный прогноз."
+      
+      - name: temp_forecast_10h
+        description: "Прогноз температуры на 10 часов вперед в градусах Цельсия (°C). Краткосрочный прогноз."
+      
+      - name: temp_forecast_24h
+        description: "Прогноз температуры на 24 часа (1 день) вперед в градусах Цельсия (°C). Среднесрочный прогноз."
+      
+      - name: temp_forecast_48h
+        description: "Прогноз температуры на 48 часов (2 дня) вперед в градусах Цельсия (°C). Среднесрочный прогноз."
+      
+      - name: temp_forecast_72h
+        description: "Прогноз температуры на 72 часа (3 дня) вперед в градусах Цельсия (°C). Долгосрочный прогноз."
+      
+      - name: temp_forecast_96h
+        description: "Прогноз температуры на 96 часов (4 дня) вперед в градусах Цельсия (°C). Долгосрочный прогноз."
+      
+      - name: temp_forecast_120h
+        description: "Прогноз температуры на 120 часов (5 дней) вперед в градусах Цельсия (°C). Долгосрочный прогноз."
+      
+      - name: temp_forecast_144h
+        description: "Прогноз температуры на 144 часа (6 дней) вперед в градусах Цельсия (°C). Долгосрочный прогноз."
+      
+      - name: temp_forecast_168h
+        description: "Прогноз температуры на 168 часов (7 дней) вперед в градусах Цельсия (°C). Долгосрочный прогноз."
+      
+      # Прогнозы влажности по горизонтам
+      - name: humidity_forecast_1h
+        description: "Прогноз влажности на 1 час вперед в процентах (%). Краткосрочный прогноз."
+      
+      - name: humidity_forecast_5h
+        description: "Прогноз влажности на 5 часов вперед в процентах (%). Краткосрочный прогноз."
+      
+      - name: humidity_forecast_10h
+        description: "Прогноз влажности на 10 часов вперед в процентах (%). Краткосрочный прогноз."
+      
+      - name: humidity_forecast_24h
+        description: "Прогноз влажности на 24 часа вперед в процентах (%). Среднесрочный прогноз."
+      
+      - name: humidity_forecast_48h
+        description: "Прогноз влажности на 48 часов вперед в процентах (%). Среднесрочный прогноз."
+      
+      - name: humidity_forecast_72h
+        description: "Прогноз влажности на 72 часа вперед в процентах (%). Долгосрочный прогноз."
+      
+      - name: humidity_forecast_96h
+        description: "Прогноз влажности на 96 часов вперед в процентах (%). Долгосрочный прогноз."
+      
+      - name: humidity_forecast_120h
+        description: "Прогноз влажности на 120 часов вперед в процентах (%). Долгосрочный прогноз."
+      
+      - name: humidity_forecast_144h
+        description: "Прогноз влажности на 144 часа вперед в процентах (%). Долгосрочный прогноз."
+      
+      - name: humidity_forecast_168h
+        description: "Прогноз влажности на 168 часов вперед в процентах (%). Долгосрочный прогноз."
+      
+      # Прогнозы скорости ветра по горизонтам
+      - name: wind_forecast_1h
+        description: "Прогноз скорости ветра на 1 час вперед в км/ч. Краткосрочный прогноз."
+      
+      - name: wind_forecast_5h
+        description: "Прогноз скорости ветра на 5 часов вперед в км/ч. Краткосрочный прогноз."
+      
+      - name: wind_forecast_10h
+        description: "Прогноз скорости ветра на 10 часов вперед в км/ч. Краткосрочный прогноз."
+      
+      - name: wind_forecast_24h
+        description: "Прогноз скорости ветра на 24 часа вперед в км/ч. Среднесрочный прогноз."
+      
+      - name: wind_forecast_48h
+        description: "Прогноз скорости ветра на 48 часов вперед в км/ч. Среднесрочный прогноз."
+      
+      - name: wind_forecast_72h
+        description: "Прогноз скорости ветра на 72 часа вперед в км/ч. Долгосрочный прогноз."
+      
+      - name: wind_forecast_96h
+        description: "Прогноз скорости ветра на 96 часов вперед в км/ч. Долгосрочный прогноз."
+      
+      - name: wind_forecast_120h
+        description: "Прогноз скорости ветра на 120 часов вперед в км/ч. Долгосрочный прогноз."
+      
+      - name: wind_forecast_144h
+        description: "Прогноз скорости ветра на 144 часа вперед в км/ч. Долгосрочный прогноз."
+      
+      - name: wind_forecast_168h
+        description: "Прогноз скорости ветра на 168 часов вперед в км/ч. Долгосрочный прогноз."
+      
+      # Реальные значения (фактические наблюдения)
+      - name: temp_actual_avg
+        description: "Средняя фактическая температура за день от этого провайдера в градусах Цельсия (°C). Используется для сравнения с прогнозами."
+      
+      - name: humidity_actual_avg
+        description: "Средняя фактическая влажность за день от этого провайдера в процентах (%). Используется для сравнения с прогнозами."
+      
+      - name: wind_actual_avg
+        description: "Средняя фактическая скорость ветра за день от этого провайдера в км/ч. Используется для сравнения с прогнозами."
+      
+      # Консенсус провайдеров (среднее по всем провайдерам)
+      - name: temp_consensus_avg
+        description: "Средняя температура по всем провайдерам (консенсус) в градусах Цельсия (°C). Показывает 'мудрость толпы' - усредненный прогноз всех провайдеров."
+      
+      - name: temp_consensus_stddev
+        description: "Стандартное отклонение температуры между провайдерами в градусах Цельсия (°C). Показывает разброс мнений провайдеров - чем больше, тем менее согласованы прогнозы."
+        tests:
+          # dbt_utils: Проверка неотрицательности
           - dbt_utils.expression_is_true:
               expression: ">= 0"
-
-  - name: dm_forecast_accuracy_summary
-    description: >
-      Агрегированная витрина точности прогнозов по дням и интервалам.
-      Показывает средние метрики для каждого провайдера, города и интервала за день.
-    config:
-      tags: ['dm', 'forecast', 'accuracy', 'summary']
-    columns:
-      - name: summary_id
-        description: "Уникальный идентификатор записи"
-        data_tests:
-          - unique
-          - not_null
+              config:
+                severity: warn
+                where: "temp_consensus_stddev is not null"
       
-      - name: provider
-        description: "Провайдер прогноза"
-        data_tests:
-          - not_null
+      - name: humidity_consensus_avg
+        description: "Средняя влажность по всем провайдерам (консенсус) в процентах (%). Усредненный прогноз влажности."
       
-      - name: hours_ahead_interval
-        description: "Интервал прогноза"
-        data_tests:
-          - not_null
+      - name: humidity_consensus_stddev
+        description: "Стандартное отклонение влажности между провайдерами в процентах (%). Показывает разброс прогнозов влажности."
+        tests:
+          # dbt_utils: Проверка неотрицательности
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "humidity_consensus_stddev is not null"
       
-      - name: forecast_count
-        description: "Количество прогнозов за день"
-        data_tests:
-          - not_null
+      - name: wind_consensus_avg
+        description: "Средняя скорость ветра по всем провайдерам (консенсус) в км/ч. Усредненный прогноз скорости ветра."
+      
+      - name: wind_consensus_stddev
+        description: "Стандартное отклонение скорости ветра между провайдерами в км/ч. Показывает разброс прогнозов скорости ветра."
+        tests:
+          # dbt_utils: Проверка неотрицательности
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+                where: "wind_consensus_stddev is not null"
+      
+      - name: providers_count
+        description: "Количество провайдеров, участвующих в консенсусе. Показывает, сколько провайдеров предоставили данные для расчета консенсуса."
+        tests:
+          # dbt_utils: Проверка положительности
           - dbt_utils.expression_is_true:
               expression: "> 0"
-      
-      - name: overall_accuracy_score
-        description: "Общий балл точности (0-100)"
-        data_tests:
-          - dbt_utils.expression_is_true:
-              expression: "between 0 and 100"
+              config:
+                severity: warn
+                where: "providers_count is not null"
 
-  - name: dm_provider_accuracy_ranking
+  - name: dm_provider_accuracy_by_city
     description: >
-      Рейтинг провайдеров по точности прогнозов для разных интервалов.
-      Показывает, какой провайдер наиболее точен для каждого горизонта прогнозирования.
+      Агрегированная точность провайдеров по городам.
+      
+      Для каждого провайдера и города показывает MAE (Mean Absolute Error) 
+      для температуры, влажности и скорости ветра на всех горизонтах прогноза.
+      Прогноз сравнивается с реальным средним значением по всем провайдерам.
+      
+      Использование: Анализ точности провайдеров по городам, выбор лучшего провайдера для конкретного города
     config:
-      tags: ['dm', 'forecast', 'ranking']
-    columns:
-      - name: ranking_id
-        description: "Уникальный идентификатор записи"
-        data_tests:
-          - unique
-          - not_null
+      tags: ['dm', 'forecast', 'accuracy', 'city']
+    
+    tests:
+      # dbt-core: Проверка уникальности комбинации город+провайдер
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - city
+            - provider
+          config:
+            severity: error
       
-      - name: provider
-        description: "Провайдер прогноза"
-        data_tests:
-          - not_null
+      # Elementary: Проверка объема данных
+      - elementary.volume_anomalies:
+          config:
+            severity: warn
       
-      - name: hours_ahead_interval
-        description: "Интервал прогноза"
-        data_tests:
-          - not_null
-      
-      - name: overall_rank
-        description: "Общий ранг провайдера для данного интервала (1 = лучший)"
-        data_tests:
-          - not_null
-          - dbt_utils.expression_is_true:
-              expression: "> 0"
-      
-      - name: overall_accuracy_score
-        description: "Общий балл точности"
-        data_tests:
-          - not_null
-
-models:
-  - name: dm_forecast_accuracy_by_interval
-    description: >
-      DM витрина для дашборда "Provider Performance Comparison".
-      Показывает метрики точности прогнозов (MAE, RMSE, accuracy%)
-      для каждого провайдера на разных временных горизонтах.
-    config:
-      tags: ['dm', 'analytics', 'forecast_accuracy']
-
-    data_tests:
-      - elementary.all_columns_anomalies:
-          timestamp_column: dbt_updated_at
-          exclude_prefix: "dbt_"
-      - elementary.event_freshness_anomalies:
-          event_timestamp_column: dbt_updated_at
-          update_timestamp_column: dbt_updated_at
+      # Elementary: Аномалии по провайдерам
+      - elementary.dimension_anomalies:
+          dimensions:
+            - provider
+          config:
+            severity: warn
 
     columns:
-      - name: provider
-        description: "Провайдер прогноза"
-        data_tests:
+      - name: city_provider_id
+        description: "Уникальный идентификатор записи (суррогатный ключ)"
+        tests:
+          - unique:
+              config:
+                severity: error
           - not_null:
               config:
                 severity: error
 
-      - name: hours_ahead_interval
-        description: "Временной интервал прогноза (1, 3, 6, 12, 24, 48 часов)"
-        data_tests:
+      - name: city
+        description: "Город"
+        tests:
+          # dbt-core: Проверка на NULL
           - not_null:
               config:
                 severity: error
+          # dbt-core: Проверка допустимых значений городов
           - accepted_values:
-              values: [1, 3, 6, 12, 24, 48]
+              values: ['Moscow', 'Saint Petersburg', 'Novosibirsk', 'Yekaterinburg', 
+                       'Kazan', 'Vladivostok', 'Murmansk', 'Yuzhno-Sakhalinsk',
+                       'London', 'Paris', 'Berlin', 'Madrid', 'Rome',
+                       'New York', 'Los Angeles', 'Chicago', 'Miami', 'Toronto']
+              config:
+                severity: error
+          # dbt-core: Проверка связи с ODS
+          - relationships:
+              to: ref('ods_weather_observations')
+              field: city
+              config:
+                severity: warn
+      
+      - name: provider
+        description: "Провайдер прогноза"
+        tests:
+          # dbt-core: Проверка на NULL
+          - not_null:
+              config:
+                severity: error
+          # dbt-core: Проверка допустимых значений провайдеров
+          - accepted_values:
+              values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit']
+              config:
+                severity: error
+          # dbt-core: Проверка связи с ODS
+          - relationships:
+              to: ref('ods_weather_forecasts')
+              field: provider
+              config:
+                severity: warn
+      
+      # Средние MAE
+      - name: avg_temp_mae
+        description: "Средний MAE температуры по всем горизонтам (°C)"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      
+      - name: avg_humidity_mae
+        description: "Средний MAE влажности по всем горизонтам (%)"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+
+      - name: avg_wind_mae
+        description: "Средний MAE скорости ветра по всем горизонтам (км/ч)"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+
+      # MAE температуры по горизонтам прогноза
+      - name: temp_mae_1h
+        description: "MAE (Mean Absolute Error) температуры для прогноза на 1 час в градусах Цельсия (°C). Средняя абсолютная ошибка краткосрочного прогноза."
+      
+      - name: temp_mae_5h
+        description: "MAE температуры для прогноза на 5 часов в градусах Цельсия (°C). Средняя абсолютная ошибка краткосрочного прогноза."
+      
+      - name: temp_mae_10h
+        description: "MAE температуры для прогноза на 10 часов в градусах Цельсия (°C). Средняя абсолютная ошибка краткосрочного прогноза."
+      
+      - name: temp_mae_24h
+        description: "MAE температуры для прогноза на 24 часа (1 день) в градусах Цельсия (°C). Средняя абсолютная ошибка среднесрочного прогноза."
+      
+      - name: temp_mae_48h
+        description: "MAE температуры для прогноза на 48 часов (2 дня) в градусах Цельсия (°C). Средняя абсолютная ошибка среднесрочного прогноза."
+      
+      - name: temp_mae_72h
+        description: "MAE температуры для прогноза на 72 часа (3 дня) в градусах Цельсия (°C). Средняя абсолютная ошибка долгосрочного прогноза."
+      
+      - name: temp_mae_96h
+        description: "MAE температуры для прогноза на 96 часов (4 дня) в градусах Цельсия (°C). Средняя абсолютная ошибка долгосрочного прогноза."
+      
+      - name: temp_mae_120h
+        description: "MAE температуры для прогноза на 120 часов (5 дней) в градусах Цельсия (°C). Средняя абсолютная ошибка долгосрочного прогноза."
+      
+      - name: temp_mae_144h
+        description: "MAE температуры для прогноза на 144 часа (6 дней) в градусах Цельсия (°C). Средняя абсолютная ошибка долгосрочного прогноза."
+      
+      - name: temp_mae_168h
+        description: "MAE температуры для прогноза на 168 часов (7 дней) в градусах Цельсия (°C). Средняя абсолютная ошибка долгосрочного прогноза."
+      
+      # MAE влажности по горизонтам прогноза
+      - name: humidity_mae_1h
+        description: "MAE влажности для прогноза на 1 час в процентах (%). Средняя абсолютная ошибка краткосрочного прогноза влажности."
+      
+      - name: humidity_mae_5h
+        description: "MAE влажности для прогноза на 5 часов в процентах (%). Средняя абсолютная ошибка краткосрочного прогноза влажности."
+      
+      - name: humidity_mae_10h
+        description: "MAE влажности для прогноза на 10 часов в процентах (%). Средняя абсолютная ошибка краткосрочного прогноза влажности."
+      
+      - name: humidity_mae_24h
+        description: "MAE влажности для прогноза на 24 часа в процентах (%). Средняя абсолютная ошибка среднесрочного прогноза влажности."
+      
+      - name: humidity_mae_48h
+        description: "MAE влажности для прогноза на 48 часов в процентах (%). Средняя абсолютная ошибка среднесрочного прогноза влажности."
+      
+      - name: humidity_mae_72h
+        description: "MAE влажности для прогноза на 72 часа в процентах (%). Средняя абсолютная ошибка долгосрочного прогноза влажности."
+      
+      - name: humidity_mae_96h
+        description: "MAE влажности для прогноза на 96 часов в процентах (%). Средняя абсолютная ошибка долгосрочного прогноза влажности."
+      
+      - name: humidity_mae_120h
+        description: "MAE влажности для прогноза на 120 часов в процентах (%). Средняя абсолютная ошибка долгосрочного прогноза влажности."
+      
+      - name: humidity_mae_144h
+        description: "MAE влажности для прогноза на 144 часа в процентах (%). Средняя абсолютная ошибка долгосрочного прогноза влажности."
+      
+      - name: humidity_mae_168h
+        description: "MAE влажности для прогноза на 168 часов в процентах (%). Средняя абсолютная ошибка долгосрочного прогноза влажности."
+      
+      # MAE скорости ветра по горизонтам прогноза
+      - name: wind_mae_1h
+        description: "MAE скорости ветра для прогноза на 1 час в км/ч. Средняя абсолютная ошибка краткосрочного прогноза скорости ветра."
+      
+      - name: wind_mae_5h
+        description: "MAE скорости ветра для прогноза на 5 часов в км/ч. Средняя абсолютная ошибка краткосрочного прогноза скорости ветра."
+      
+      - name: wind_mae_10h
+        description: "MAE скорости ветра для прогноза на 10 часов в км/ч. Средняя абсолютная ошибка краткосрочного прогноза скорости ветра."
+      
+      - name: wind_mae_24h
+        description: "MAE скорости ветра для прогноза на 24 часа в км/ч. Средняя абсолютная ошибка среднесрочного прогноза скорости ветра."
+      
+      - name: wind_mae_48h
+        description: "MAE скорости ветра для прогноза на 48 часов в км/ч. Средняя абсолютная ошибка среднесрочного прогноза скорости ветра."
+      
+      - name: wind_mae_72h
+        description: "MAE скорости ветра для прогноза на 72 часа в км/ч. Средняя абсолютная ошибка долгосрочного прогноза скорости ветра."
+      
+      - name: wind_mae_96h
+        description: "MAE скорости ветра для прогноза на 96 часов в км/ч. Средняя абсолютная ошибка долгосрочного прогноза скорости ветра."
+      
+      - name: wind_mae_120h
+        description: "MAE скорости ветра для прогноза на 120 часов в км/ч. Средняя абсолютная ошибка долгосрочного прогноза скорости ветра."
+      
+      - name: wind_mae_144h
+        description: "MAE скорости ветра для прогноза на 144 часа в км/ч. Средняя абсолютная ошибка долгосрочного прогноза скорости ветра."
+      
+      - name: wind_mae_168h
+        description: "MAE скорости ветра для прогноза на 168 часов в км/ч. Средняя абсолютная ошибка долгосрочного прогноза скорости ветра."
+      
+      # Ранги
+      - name: provider_rank_by_temp
+        description: "Ранг провайдера по городу (по средней температурной ошибке, 1 = лучший)"
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: error
+      
+      - name: provider_rank_by_humidity
+        description: "Ранг провайдера по городу (по средней ошибке влажности, 1 = лучший)"
+        tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: provider_rank_by_wind
+        description: "Ранг провайдера по городу (по средней ошибке ветра, 1 = лучший)"
+        tests:
+          - not_null:
+              config:
+                severity: error
+      
+      - name: overall_rank_score
+        description: "Общий балл ранга (среднее арифметическое рангов по температуре, влажности и ветру)"
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: error
+      
+      - name: total_forecasts
+        description: "Общее количество прогнозов для этого провайдера и города"
+        tests:
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: ">= 10"
+              config:
+                severity: warn
+
+  - name: dm_provider_accuracy_overall
+    description: >
+      Общая точность провайдеров по всем городам.
+      
+      Агрегированная точность прогнозов для каждого провайдера по всем городам.
+      Включает MAE для температуры, влажности и скорости ветра на всех горизонтах прогноза.
+      Прогноз сравнивается с реальным средним значением по всем провайдерам.
+      
+      Использование: Общий рейтинг провайдеров, выбор лучшего провайдера в целом
+    config:
+      tags: ['dm', 'forecast', 'accuracy', 'overall']
+    
+    tests:
+      # Elementary: Проверка объема данных
+      - elementary.volume_anomalies:
+          config:
+            severity: warn
+      
+      # Elementary: Аномалии по провайдерам
+      - elementary.dimension_anomalies:
+          dimensions:
+            - provider
+          config:
+            severity: warn
+    
+    columns:
+      - name: provider_id
+        description: "Уникальный идентификатор записи (суррогатный ключ)"
+        tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+
+      - name: provider
+        description: "Провайдер прогноза"
+        tests:
+          # dbt-core: Проверка уникальности
+          - unique:
+              config:
+                severity: error
+          # dbt-core: Проверка на NULL
+          - not_null:
+              config:
+                severity: error
+          # dbt-core: Проверка допустимых значений провайдеров
+          - accepted_values:
+              values: ['open_meteo', 'openweathermap', 'weatherapi', 'weatherbit']
+              config:
+                severity: error
+          # dbt-core: Проверка связи с ODS
+          - relationships:
+              to: ref('ods_weather_forecasts')
+              field: provider
+              config:
+                severity: warn
+      
+      # Средние MAE
+      - name: avg_temp_mae
+        description: "Средний MAE температуры по всем горизонтам и городам (°C)"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      
+      - name: avg_humidity_mae
+        description: "Средний MAE влажности по всем горизонтам и городам (%)"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+      
+      - name: avg_wind_mae
+        description: "Средний MAE скорости ветра по всем горизонтам и городам (км/ч)"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+              config:
+                severity: warn
+
+      # MAE температуры по горизонтам
+      - name: temp_mae_1h
+        description: "MAE температуры для прогноза на 1 час по всем городам (°C)"
+      
+      - name: temp_mae_5h
+        description: "MAE температуры для прогноза на 5 часов по всем городам (°C)"
+      
+      - name: temp_mae_10h
+        description: "MAE температуры для прогноза на 10 часов по всем городам (°C)"
+      
+      - name: temp_mae_24h
+        description: "MAE температуры для прогноза на 24 часа по всем городам (°C)"
+      
+      - name: temp_mae_48h
+        description: "MAE температуры для прогноза на 48 часов по всем городам (°C)"
+      
+      - name: temp_mae_72h
+        description: "MAE температуры для прогноза на 72 часа по всем городам (°C)"
+      
+      - name: temp_mae_96h
+        description: "MAE температуры для прогноза на 96 часов по всем городам (°C)"
+      
+      - name: temp_mae_120h
+        description: "MAE температуры для прогноза на 120 часов по всем городам (°C)"
+      
+      - name: temp_mae_144h
+        description: "MAE температуры для прогноза на 144 часа по всем городам (°C)"
+      
+      - name: temp_mae_168h
+        description: "MAE температуры для прогноза на 168 часов по всем городам (°C)"
+      
+      # Ранги
+      - name: provider_rank_by_temp
+        description: "Общий ранг провайдера (по средней температурной ошибке, 1 = лучший)"
+        tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+              config:
+                severity: error
+
+      - name: provider_rank_by_humidity
+        description: "Общий ранг провайдера (по средней ошибке влажности, 1 = лучший)"
+        tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+
+      - name: provider_rank_by_wind
+        description: "Общий ранг провайдера (по средней ошибке ветра, 1 = лучший)"
+        tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+
+      - name: overall_rank_score
+        description: "Общий балл ранга (среднее арифметическое рангов по температуре, влажности и ветру)"
+        tests:
+          - unique:
+              config:
+                severity: error
+          - not_null:
+              config:
+                severity: error
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
               config:
                 severity: error
 
       - name: total_forecasts
-        description: "Общее количество прогнозов"
-        data_tests:
+        description: "Общее количество прогнозов для этого провайдера по всем городам"
+        tests:
           - not_null:
               config:
                 severity: error
           - dbt_utils.expression_is_true:
-              expression: "> 0"
-              config:
-                severity: error
-
-      - name: temperature_mae
-        description: "Mean Absolute Error для температуры (°C)"
-        data_tests:
-          - not_null:
-              config:
-                severity: warn
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-              config:
-                severity: warn
-
-      - name: accuracy_within_2deg_pct
-        description: "Процент прогнозов с точностью ±2°C"
-        data_tests:
-          - dbt_utils.expression_is_true:
-              expression: "between 0 and 100"
-              config:
-                severity: warn
-
-  - name: dm_provider_ranking
-    description: >
-      DM витрина для дашборда "Overall Provider Ranking".
-      Агрегированный рейтинг провайдеров на основе всех метрик точности.
-      Включает общий рейтинг и ранги по категориям (краткосрочные/долгосрочные прогнозы).
-    config:
-      tags: ['dm', 'analytics', 'ranking']
-    columns:
-      - name: provider
-        description: "Провайдер прогноза"
-        data_tests:
-          - unique:
-              config:
-                severity: error
-          - not_null:
-              config:
-                severity: error
-
-      - name: overall_rank
-        description: "Общий рейтинг провайдера (1 = лучший)"
-        data_tests:
-          - unique:
-              config:
-                severity: error
-          - not_null:
-              config:
-                severity: error
-
-      - name: avg_temperature_mae
-        description: "Средний MAE температуры по всем интервалам"
-        data_tests:
-          - not_null:
-              config:
-                severity: warn
-          - dbt_utils.expression_is_true:
-              expression: ">= 0"
-              config:
-                severity: warn
-
-      - name: total_forecasts_all_intervals
-        description: "Общее количество прогнозов по всем интервалам"
-        data_tests:
-          - not_null:
-              config:
-                severity: error
-          - dbt_utils.expression_is_true:
-              expression: "> 0"
-              config:
-                severity: error
-
-  - name: dm_city_weather_summary
-    description: >
-      DM витрина для дашборда "City Weather Overview".
-      Агрегированная статистика по каждому городу с историческими данными.
-    config:
-      tags: ['dm', 'analytics', 'city_summary']
-    columns:
-      - name: city
-        description: "Название города"
-        data_tests:
-          - unique:
-              config:
-                severity: error
-          - not_null:
-              config:
-                severity: error
-
-      - name: country
-        description: "Страна"
-        data_tests:
-          - not_null:
-              config:
-                severity: error
-
-      - name: days_tracked
-        description: "Количество дней наблюдений"
-        data_tests:
-          - not_null:
-              config:
-                severity: error
-          - dbt_utils.expression_is_true:
-              expression: "> 0"
-              config:
-                severity: error
-
-      - name: providers_count
-        description: "Количество провайдеров для этого города"
-        data_tests:
-          - not_null:
-              config:
-                severity: warn
-          - dbt_utils.expression_is_true:
-              expression: "> 0"
+              expression: ">= 10"
               config:
                 severity: warn

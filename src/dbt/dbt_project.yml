@@ -30,6 +30,5 @@ models:
       +schema: dm
       +incremental_strategy: merge
 
-  # Elementary data quality monitoring
   elementary:
     +schema: elementary
